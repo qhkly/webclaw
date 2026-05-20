@@ -9,6 +9,7 @@
   "install_script": "/opt/install-hermes.sh",
   "uninstall_script": "/opt/uninstall-hermes.sh",
   "launch_binary": "/opt/hermes-browser.sh",
+  "icon": "/opt/desktop-icons/hermes.png",
   "requires_terminal": false,
   "description": "Self-improving AI Agent with Learning Loop",
   "description_zh_CN": "具有学习能力的自进化 AI 代理"
