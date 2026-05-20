@@ -41,6 +41,15 @@ case "$APP_ID" in
         groupadd -f wireshark
         usermod -a -G wireshark ubuntu
         setcap cap_net_raw,cap_net_admin=ep /usr/bin/dumpcap
+
+        # Keep the single official menu entry, but use WebClaw's cleaner icon.
+        if [ -f /usr/share/applications/org.wireshark.Wireshark.desktop ] \
+            && [ -f /opt/on-demand-icons/wireshark.png ]; then
+            sed -i 's|^Icon=.*|Icon=/opt/on-demand-icons/wireshark.png|' \
+                /usr/share/applications/org.wireshark.Wireshark.desktop
+            rm -f /usr/share/applications/wireshark.desktop
+            update-desktop-database /usr/share/applications 2>/dev/null || true
+        fi
         ;;
     *)
         # 没有钩子的应用直接成功返回（避免 launcher 误判失败）

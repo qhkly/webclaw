@@ -374,6 +374,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/webclaw-app-postinstall.sh /usr/local/bin/webclaw-app-postinstall \
     && cp /tmp/_scripts/webclaw-log-prepare.sh /usr/local/bin/webclaw-log-prepare \
     && cp /tmp/_scripts/update-desktop-icons.sh /usr/local/bin/update-desktop-icons \
+    && cp /tmp/_scripts/webclaw-desktop-panel-safe-refresh.sh /usr/local/bin/webclaw-desktop-panel-safe-refresh \
     && cp /tmp/_scripts/install-antigravity.sh /usr/local/bin/install-antigravity \
     && cp /tmp/_scripts/preinstall-on-demand.sh /usr/local/bin/preinstall-on-demand.sh \
     && cp -r /tmp/_scripts/on-demand-helpers/ /usr/local/bin/on-demand-helpers/ \
@@ -405,7 +406,8 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /usr/local/bin/browser /usr/local/bin/launchpad \
         /usr/local/bin/webclaw-app-launcher /usr/local/bin/webclaw-app-uninstaller \
         /usr/local/bin/webclaw-app-postinstall /usr/local/bin/webclaw-log-prepare \
-        /usr/local/bin/update-desktop-icons /usr/local/bin/install-antigravity \
+        /usr/local/bin/update-desktop-icons /usr/local/bin/webclaw-desktop-panel-safe-refresh \
+        /usr/local/bin/install-antigravity \
         /usr/local/bin/preinstall-on-demand.sh \
         /usr/local/bin/on-demand-helpers/*.sh \
         /opt/startup.sh /opt/init-skills.sh /usr/local/bin/run-cloudflared.sh \

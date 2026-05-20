@@ -194,6 +194,13 @@ preinstall_apt() {
         groupadd -f wireshark
         usermod -a -G wireshark ubuntu || warn "$id: usermod failed"
         setcap cap_net_raw,cap_net_admin=ep /usr/bin/dumpcap || warn "$id: setcap failed"
+        if [ -f /usr/share/applications/org.wireshark.Wireshark.desktop ] \
+            && [ -f /opt/on-demand-icons/wireshark.png ]; then
+            sed -i 's|^Icon=.*|Icon=/opt/on-demand-icons/wireshark.png|' \
+                /usr/share/applications/org.wireshark.Wireshark.desktop
+            rm -f /usr/share/applications/wireshark.desktop
+            update-desktop-database /usr/share/applications 2>/dev/null || true
+        fi
     fi
 }
 

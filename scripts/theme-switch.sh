@@ -66,11 +66,7 @@ case "$1" in
         gsettings set org.gnome.desktop.wm.preferences theme 'Adwaita' 2>/dev/null
         gsettings set org.gnome.gnome-panel.general theme-variant 'light' 2>/dev/null
         echo "light" > "$THEME_FILE"
-        # Restart panel to apply theme immediately
-        export XDG_MENU_PREFIX=gnome-flashback-
-        killall gnome-panel 2>/dev/null
-        sleep 0.2
-        env GTK_THEME=Adwaita gnome-panel --replace >/dev/null 2>&1 &
+        webclaw-desktop-panel-safe-refresh --restart-panel --theme light >/dev/null 2>&1 || true
         basename "$WALLPAPER"
         ;;
     dark)
@@ -80,11 +76,7 @@ case "$1" in
         gsettings set org.gnome.desktop.wm.preferences theme 'Adwaita-dark' 2>/dev/null
         gsettings set org.gnome.gnome-panel.general theme-variant 'dark' 2>/dev/null
         echo "dark" > "$THEME_FILE"
-        # Restart panel to apply theme immediately
-        export XDG_MENU_PREFIX=gnome-flashback-
-        killall gnome-panel 2>/dev/null
-        sleep 0.2
-        env GTK_THEME=Adwaita-dark gnome-panel --replace >/dev/null 2>&1 &
+        webclaw-desktop-panel-safe-refresh --restart-panel --theme dark >/dev/null 2>&1 || true
         basename "$WALLPAPER"
         ;;
     *)
