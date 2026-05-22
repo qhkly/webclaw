@@ -1,0 +1,14 @@
+{
+  "id": "webclaw-upgrader",
+  "group": "system",
+  "name": "WebClaw Upgrader",
+  "name_zh_CN": "WebClaw 升级工具",
+  "package": "webclaw-upgrader",
+  "binary": "/usr/bin/webclaw-upgrader",
+  "install_method": "custom_script",
+  "install_script": "/opt/install-webclaw-upgrader.sh",
+  "install_wrapper": "/opt/webclaw-upgrader-install-wrapper.sh",
+  "uninstall_script": "/opt/uninstall-webclaw-upgrader.sh",
+  "description": "In-container software upgrade manager with Supervisor status board",
+  "description_zh_CN": "容器内软件升级管理工具，含 Supervisor 状态监控"
+}

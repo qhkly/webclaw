@@ -42,6 +42,15 @@ case "$INSTALL_METHOD" in
         rm -f "/usr/share/applications/${APP_ID}.desktop"
         rm -f "/usr/share/applications/${PKG}.desktop"
         ;;
+    custom_script)
+        UNINSTALL_SCRIPT=$(jq -r '.uninstall_script // empty' "$MANIFEST")
+        if [ -n "$UNINSTALL_SCRIPT" ] && [ -x "$UNINSTALL_SCRIPT" ]; then
+            DISABLE_ZENITY=1 "$UNINSTALL_SCRIPT"
+        else
+            echo "No uninstall_script defined for $APP_ID" >&2
+            exit 1
+        fi
+        ;;
     *)
         echo "Unknown install method: $INSTALL_METHOD" >&2
         exit 1

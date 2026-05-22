@@ -7,6 +7,7 @@
   "binary": "/opt/hermes-agent/venv/bin/hermes",
   "install_method": "custom_script",
   "install_script": "/opt/install-hermes.sh",
+  "install_wrapper": "/opt/hermes-install-wrapper.sh",
   "uninstall_script": "/opt/uninstall-hermes.sh",
   "launch_binary": "/opt/hermes-browser.sh",
   "icon": "/opt/desktop-icons/hermes.png",

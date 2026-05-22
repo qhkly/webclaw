@@ -364,6 +364,10 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/code-server-browser.sh /usr/local/bin/code-server-browser \
     && cp /tmp/_scripts/install-hermes.sh /opt/install-hermes.sh \
     && cp /tmp/_scripts/uninstall-hermes.sh /opt/uninstall-hermes.sh \
+    && cp /tmp/_scripts/hermes-install-wrapper.sh /opt/hermes-install-wrapper.sh \
+    && cp /tmp/_scripts/install-webclaw-upgrader.sh /opt/install-webclaw-upgrader.sh \
+    && cp /tmp/_scripts/uninstall-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
+    && cp /tmp/_scripts/webclaw-upgrader-install-wrapper.sh /opt/webclaw-upgrader-install-wrapper.sh \
     && cp /tmp/_scripts/hermes-launcher.sh /usr/local/bin/hermes-launcher \
     && cp /tmp/_scripts/start-hermes-dashboard.sh /opt/start-hermes-dashboard.sh \
     && cp /tmp/_scripts/hermes-browser.sh /opt/hermes-browser.sh \
@@ -402,6 +406,8 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/start-dashboard.sh /opt/start-webtty.sh /opt/start-openclaw.sh /opt/start-ssh.sh \
         /usr/local/bin/openclaw-browser /usr/local/bin/code-server-browser \
         /opt/install-hermes.sh /opt/uninstall-hermes.sh /usr/local/bin/hermes-launcher \
+        /opt/install-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
+        /opt/webclaw-upgrader-install-wrapper.sh \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
         /usr/local/bin/browser /usr/local/bin/launchpad \
         /usr/local/bin/webclaw-app-launcher /usr/local/bin/webclaw-app-uninstaller \
@@ -418,9 +424,15 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && ln -sf /usr/local/bin/on-demand-helpers/codex-version-api.sh /usr/local/bin/codex-version-api.sh \
     && ln -sf /usr/local/bin/on-demand-helpers/get-android-studio-version.sh /usr/local/bin/get-android-studio-version \
     && chown root:root /opt/install-hermes.sh /opt/uninstall-hermes.sh \
+        /opt/hermes-install-wrapper.sh \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
+        /opt/install-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
+        /opt/webclaw-upgrader-install-wrapper.sh \
     && chmod 755 /opt/install-hermes.sh /opt/uninstall-hermes.sh \
+        /opt/hermes-install-wrapper.sh \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
+        /opt/install-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
+        /opt/webclaw-upgrader-install-wrapper.sh \
     && mkdir -p /opt/dashboard-override \
     && chown -R ubuntu:ubuntu /opt/dashboard-override \
     && printf '\n# Theme switch aliases\nalias light-mode="/usr/local/bin/theme-switch light"\nalias dark-mode="/usr/local/bin/theme-switch dark"\n' >> /home/ubuntu/.bashrc \
@@ -499,32 +511,18 @@ RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
 
 # ─── webclaw-upgrader (仅桌面版本) ──────────────────────────────────
 # 容器内的软件升级管理 + supervisor 状态板,需要 GUI 桌面
-# 仅 INSTALL_DESKTOP=true 时安装,从 GitHub Release 拉取 .deb
+# 仅 INSTALL_DESKTOP=true 时安装,通过安装脚本从 GitHub Release 拉取 .deb
 #
 # 每次构建拿最新版本:
 #   - 默认 ARG=latest,通过 GitHub API 解析 tag_name
 #   - 也可显式锁定: docker build --build-arg WEBCLAW_UPGRADER_VERSION=0.1.2 ...
 # 注: Docker 层缓存会复用,需要刷新时传变化的 ARG 或加 --no-cache
+# 卸载: 右键桌面图标 → 卸载,或 /opt/uninstall-webclaw-upgrader.sh
 ARG WEBCLAW_UPGRADER_VERSION=latest
-COPY configs/sudoers/webclaw-upgrader /tmp/sudoers-webclaw-upgrader
 RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
-        set -eux; \
-        ARCH=$(dpkg --print-architecture); \
-        VER="$WEBCLAW_UPGRADER_VERSION"; \
-        if [ "$VER" = "latest" ]; then \
-            VER=$(curl -fsSL https://api.github.com/repos/land007/webclaw-upgrader/releases/latest \
-                | sed -n 's/.*"tag_name":[[:space:]]*"v\([^"]*\)".*/\1/p' | head -n1); \
-        fi; \
-        echo "Installing webclaw-upgrader v${VER} (${ARCH})"; \
-        curl -fsSL "https://github.com/land007/webclaw-upgrader/releases/download/v${VER}/WebClaw.Upgrader_${VER}_${ARCH}.deb" \
-            -o /tmp/webclaw-upgrader.deb \
-        && (dpkg -i /tmp/webclaw-upgrader.deb || apt-get install -fy) \
-        && rm -f /tmp/webclaw-upgrader.deb \
-        && cp /tmp/sudoers-webclaw-upgrader /etc/sudoers.d/webclaw-upgrader \
-        && chmod 0440 /etc/sudoers.d/webclaw-upgrader \
-        && visudo -c -f /etc/sudoers.d/webclaw-upgrader; \
-    fi \
-    && rm -f /tmp/sudoers-webclaw-upgrader
+        WEBCLAW_DOCKER_BUILD=1 WEBCLAW_UPGRADER_VERSION="${WEBCLAW_UPGRADER_VERSION}" \
+        bash /opt/install-webclaw-upgrader.sh; \
+    fi
 
 # ─── Metadata ───────────────────────────────────────────────────────
 ARG WEBCODE_VERSION=dev

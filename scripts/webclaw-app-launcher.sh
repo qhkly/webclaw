@@ -1079,32 +1079,34 @@ EOF
         ;;
 
     custom_script)
-        # ─── 自定义脚本安装(Hermes 等) ────────────────────────────────────────
+        # ─── 自定义脚本安装 (Hermes, webclaw-upgrader 等) ─────────────────────
         INSTALL_SCRIPT=$(jq -r '.install_script // empty' "$MANIFEST")
+        INSTALL_WRAPPER=$(jq -r '.install_wrapper // empty' "$MANIFEST")
+        # install_wrapper 优先；没有时直接用 install_script
+        [ -z "$INSTALL_WRAPPER" ] && INSTALL_WRAPPER="$INSTALL_SCRIPT"
 
-        if [ -z "$INSTALL_SCRIPT" ] || [ ! -x "$INSTALL_SCRIPT" ]; then
+        if [ -z "$INSTALL_WRAPPER" ] || [ ! -x "$INSTALL_WRAPPER" ]; then
             zenity --error --title="$NAME" \
-                --text="未找到安装脚本或脚本不可执行:\n$INSTALL_SCRIPT" \
+                --text="未找到安装脚本或脚本不可执行:\n$INSTALL_WRAPPER" \
                 --width=420
             exit 1
         fi
 
+        APP_ICON=$(jq -r '.icon // empty' "$MANIFEST")
+        ICON_ARG=()
+        [ -n "$APP_ICON" ] && [ -f "$APP_ICON" ] && ICON_ARG=("--window-icon=$APP_ICON")
+
+        PROGRESS_FILE="/tmp/${APP_ID}_progress"
+        : > "$PROGRESS_FILE"
+
         {
             echo "5"
             echo "# 正在安装 $NAME..."
-
-            # 执行自定义安装脚本（不使用其内置进度条，我们自己控制）
-            # 设置环境变量告诉脚本这是由 webclaw-app-launcher 调用的
-            # 同时禁用其内置 zenity，避免重复进度条
             echo "10"
             echo "# 准备安装环境..."
 
-            # 创建进度文件用于实时更新
-            PROGRESS_FILE="/tmp/${APP_ID}_progress"
-            : > "$PROGRESS_FILE"
-
-            # 后台运行安装脚本
-            sudo "/opt/hermes-install-wrapper.sh" >>"$LOG" 2>&1 &
+            # 后台运行安装包装脚本（已内置 WEBCLAW_APP_LAUNCHER=1 DISABLE_ZENITY=1）
+            sudo "$INSTALL_WRAPPER" >>"$LOG" 2>&1 &
             INSTALL_PID=$!
 
             # 监控进度文件并实时更新 zenity
@@ -1113,17 +1115,15 @@ EOF
                     if [ -f "$PROGRESS_FILE" ]; then
                         PROGRESS=$(cat "$PROGRESS_FILE" 2>/dev/null || echo "30")
                         echo "${PROGRESS}"
-                        # 尝试读取进度描述（可选）
                         if [ -f "$PROGRESS_FILE.desc" ]; then
                             DESC=$(cat "$PROGRESS_FILE.desc" 2>/dev/null || echo "安装中...")
                         else
-                            # 如果没有描述文件，使用固定描述
                             case "$PROGRESS" in
                                 10|20) DESC="安装依赖..." ;;
-                                30|40) DESC="克隆仓库..." ;;
-                                50|60) DESC="运行脚本..." ;;
+                                30|40) DESC="下载安装包..." ;;
+                                50|60) DESC="运行安装程序..." ;;
                                 70|80) DESC="配置..." ;;
-                                90) DESC="启动服务..." ;;
+                                90) DESC="收尾..." ;;
                                 *) DESC="安装中..." ;;
                             esac
                         fi
@@ -1131,13 +1131,11 @@ EOF
                     fi
                     sleep 2
                 done
-                # 安装完成
                 echo "100"
                 echo "# 完成"
                 rm -f "$PROGRESS_FILE" "$PROGRESS_FILE.desc" 2>/dev/null || true
             ) &
 
-            # 等待安装完成
             wait $INSTALL_PID
             INSTALL_STATUS=$?
 
@@ -1146,39 +1144,13 @@ EOF
                 echo "100"; exit 1
             fi
 
-            echo "70"
-            echo "# 正在配置..."
-
-            # 添加到 Supervisor 配置（通用方法）
-            if [ -f "/etc/supervisor/supervisord.conf" ]; then
-                # 检查是否已经在 include 列表中
-                if ! grep -q "supervisor-hermes.conf" /etc/supervisor/supervisord.conf; then
-                    # 获取 include 行的 files 部分
-                    if grep -q "^files " /etc/supervisor/supervisord.conf; then
-                        # 在 files 行末尾添加（确保没有重复）
-                        sed -i "s|^files \\(.*\\)|files \\1 /etc/supervisor/conf.d/supervisor-hermes.conf|" /etc/supervisor/supervisord.conf
-                    else
-                        # 如果没有 files 行，在 [include] 部分添加
-                        sed -i '/\\[include\\]/a files = /etc/supervisor/conf.d/supervisor-hermes.conf' /etc/supervisor/supervisord.conf
-                    fi
-                    supervisorctl reread > /dev/null 2>&1
-                    supervisorctl update > /dev/null 2>&1
-                fi
-            fi
-
-            echo "90"
-            echo "# 启动服务..."
-
-            # 等待服务启动
-            sleep 3
-
             echo "100"
             echo "# 完成"
         } | zenity --progress \
             --title="安装 $NAME" \
             --text="准备中..." \
             --percentage=0 --auto-close --no-cancel --width=420 \
-            --window-icon=/opt/on-demand-icons/hermes.png
+            "${ICON_ARG[@]+"${ICON_ARG[@]}"}"
         ;;
 
     *)
