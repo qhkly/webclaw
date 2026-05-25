@@ -234,9 +234,24 @@
     }
   }
 
+  function looksLikeBinaryData(text) {
+    // Reject PNG/JPEG/other binary that VNC server may forward as clipboard text.
+    // Check first 8 chars for control bytes or C1-control-block chars (0x80–0x9F).
+    const n = Math.min(text.length, 8);
+    for (let i = 0; i < n; i++) {
+      const c = text.charCodeAt(i);
+      // Allow tab (9), LF (10), CR (13); reject other controls and C1 block
+      if ((c < 9) || (c === 11 || c === 12) || (c >= 14 && c < 32) || (c >= 0x80 && c <= 0x9F)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   async function handleRfbClipboard(e) {
     const text = e && e.detail && typeof e.detail.text === 'string' ? e.detail.text : '';
-    if (text && text !== lastTextSentToContainer && text !== lastTextCopiedToMac) {
+    if (!text || looksLikeBinaryData(text)) return;
+    if (text !== lastTextSentToContainer && text !== lastTextCopiedToMac && text !== lastTextSeenFromContainer) {
       lastTextSeenFromContainer = text;
       await syncTextFromContainerToMac(text);
     }
@@ -246,8 +261,21 @@
     setNoVncClipboardText(text);
     const ok = await writeTextToMacClipboard(text);
     if (!ok) {
-      showLoading(T.text_clipboard_blocked, 'error');
-      hideLoading();
+      // Browser blocked. Write to X11 CLIPBOARD so the Tauri desktop app's
+      // sync loop (polling every 500ms) can relay it to the Mac clipboard.
+      try {
+        await fetch(getClipboardTextApiUrl(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+      } catch (_) {}
+      // In Tauri webview: sync happens silently via desktop app, no toast needed.
+      // In regular browser: inform user that sync didn't reach Mac clipboard directly.
+      if (!window.__TAURI__) {
+        showLoading(T.text_clipboard_blocked, 'error');
+        hideLoading();
+      }
     }
   }
 
@@ -331,6 +359,7 @@
               body: JSON.stringify({ text })
             });
 
+            lastTextSentToContainer = text;
             console.log('[clipboard] ✓ Synced, sending ' + keyName + ' to container');
 
             // 等待 xclip 完成，然后手动发送对应的按键到容器
