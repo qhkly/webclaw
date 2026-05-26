@@ -73,8 +73,8 @@ jobs:
             org.opencontainers.image.title=webclaw
             org.opencontainers.image.description=Base image with Code Server IDE and Supervisor
             org.opencontainers.image.source=https://github.com/land007/webclaw
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=build-base
+          cache-to: type=gha,mode=max,scope=build-base
           outputs: |
             type=image,push=true,annotation-index.org.opencontainers.image.description=Base Code Server IDE image with Supervisor (no desktop)
 
@@ -151,8 +151,8 @@ jobs:
             WEBCODE_VERSION=${{ github.sha }}
           tags: ${{ steps.meta-full.outputs.tags }}
           labels: ${{ steps.meta-full.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=build-desktop
+          cache-to: type=gha,mode=max,scope=build-desktop
           outputs: |
             type=image,push=true,annotation-index.org.opencontainers.image.description=Desktop image with GNOME desktop and code-server IDE plus OpenClaw
 
@@ -229,8 +229,8 @@ jobs:
             WEBCODE_VERSION=${{ github.sha }}
           tags: ${{ steps.meta-lite.outputs.tags }}
           labels: ${{ steps.meta-lite.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=build-lite
+          cache-to: type=gha,mode=max,scope=build-lite
           outputs: |
             type=image,push=true,annotation-index.org.opencontainers.image.description=Lite image with code-server IDE and OpenClaw (no desktop)
 
@@ -317,8 +317,8 @@ jobs:
             WEBCLAW_IMAGE_TAG=${{ steps.image_tag.outputs.value }}
           tags: ${{ steps.meta-full-clis.outputs.tags }}
           labels: ${{ steps.meta-full-clis.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=build-full
+          cache-to: type=gha,mode=max,scope=build-full
 
       - name: Check disk space after build
         if: always()

@@ -475,3 +475,4 @@ FCITX_PROFILE_EOF
 
     exec /usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf
 fi
+# v2.1.40
