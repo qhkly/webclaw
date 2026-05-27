@@ -24,6 +24,7 @@
       <Filename>codex-cli.desktop</Filename>
       <Filename>gemini-cli.desktop</Filename>
       <Filename>opencode-cli.desktop</Filename>
+      <Filename>AI CLI Studio.desktop</Filename>
       <Separator/>
       <Merge type="all"/>
     </Layout>
