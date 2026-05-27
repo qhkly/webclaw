@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Git Manager
+GenericName=Git 仓库管理
+Comment=Git 仓库管理工具
+Comment[zh_CN]=Git 仓库管理工具（支持多仓库管理、查看同步状态、GitHub Actions）
+Exec=/usr/bin/git-manager
+Icon=git-manager
+Type=Application
+Categories=Development;
+StartupNotify=true
+StartupWMClass=git-manager

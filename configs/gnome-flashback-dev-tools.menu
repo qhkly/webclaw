@@ -1,0 +1,21 @@
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN"
+ "http://www.freedesktop.org/standards/menu-spec/1.0/menu.dtd">
+
+<!-- Merge file to add Development Tools submenu -->
+<Menu>
+  <Name>Applications</Name>
+
+  <!-- Development Tools submenu -->
+  <Menu>
+    <Name>Development Tools</Name>
+    <Directory>dev-tools.directory</Directory>
+    <Include>
+      <Category>Development</Category>
+    </Include>
+    <Layout>
+      <Filename>webcode-git-manager.desktop</Filename>
+      <Separator/>
+      <Merge type="all"/>
+    </Layout>
+  </Menu>
+</Menu>

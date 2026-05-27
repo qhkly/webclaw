@@ -369,6 +369,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/uninstall-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
     && cp /tmp/_scripts/webclaw-upgrader-install-wrapper.sh /opt/webclaw-upgrader-install-wrapper.sh \
     && cp /tmp/_scripts/install-webcode-ai-studio.sh /opt/install-webcode-ai-studio.sh \
+    && cp /tmp/_scripts/install-webcode-git-manager.sh /opt/install-webcode-git-manager.sh \
     && cp /tmp/_scripts/hermes-launcher.sh /usr/local/bin/hermes-launcher \
     && cp /tmp/_scripts/start-hermes-dashboard.sh /opt/start-hermes-dashboard.sh \
     && cp /tmp/_scripts/hermes-browser.sh /opt/hermes-browser.sh \
@@ -409,6 +410,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/install-hermes.sh /opt/uninstall-hermes.sh /usr/local/bin/hermes-launcher \
         /opt/install-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
         /opt/webclaw-upgrader-install-wrapper.sh /opt/install-webcode-ai-studio.sh \
+        /opt/install-webcode-git-manager.sh \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
         /usr/local/bin/browser /usr/local/bin/launchpad \
         /usr/local/bin/webclaw-app-launcher /usr/local/bin/webclaw-app-uninstaller \
@@ -538,6 +540,21 @@ ARG WEBCODE_AI_STUDIO_VERSION=latest
 RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
         WEBCLAW_DOCKER_BUILD=1 WEBCODE_AI_STUDIO_VERSION="${WEBCODE_AI_STUDIO_VERSION}" \
         bash /opt/install-webcode-ai-studio.sh; \
+    fi
+
+# ─── webcode-git-manager (仅桌面版本) ──────────────────────────────────
+# Git 仓库管理工具,需要 GUI 桌面
+# 仅 INSTALL_DESKTOP=true 时安装,通过安装脚本从 R2 拉取 .deb
+#
+# 每次构建拿最新版本:
+#   - 默认 ARG=latest,通过 R2 metadata 解析版本
+#   - 也可显式锁定: docker build --build-arg WEBCODE_GIT_MANAGER_VERSION=0.1.9 ...
+# 注: Docker 层缓存会复用,需要刷新时传变化的 ARG 或加 --no-cache
+# 卸载: apt-get remove git-manager
+ARG WEBCODE_GIT_MANAGER_VERSION=latest
+RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
+        WEBCLAW_DOCKER_BUILD=1 WEBCODE_GIT_MANAGER_VERSION="${WEBCODE_GIT_MANAGER_VERSION}" \
+        bash /opt/install-webcode-git-manager.sh; \
     fi
 
 # ─── Metadata ───────────────────────────────────────────────────────
