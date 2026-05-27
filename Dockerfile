@@ -341,6 +341,10 @@ COPY configs/ /tmp/_configs/
 COPY scripts/ /tmp/_scripts/
 COPY skills/ /opt/skills/
 
+# ─── 12.1. webclaw-upgrader manifest ────────────────────────────────────────
+RUN mkdir -p /usr/share/webclaw-upgrader
+COPY ../webclaw-upgrader/software-manifest.json /usr/share/webclaw-upgrader/software-manifest.json
+
 RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_configs/supervisord-lite.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_configs/supervisor-code-server.conf /etc/supervisor/conf.d/ \
