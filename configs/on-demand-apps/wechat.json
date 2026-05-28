@@ -1,0 +1,14 @@
+{
+  "id": "wechat",
+  "group": "social",
+  "name": "WeChat",
+  "name_zh_CN": "微信",
+  "package": "wechat",
+  "binary": "/opt/wechat/RadiumWMPF/runtime/WeChatAppEx",
+  "install_method": "direct_download",
+  "download_url": "https://dldir1v6.qq.com/weixin/Universal/Linux/WeChatLinux_{arch_suffix}.deb",
+  "arch_map": {
+    "amd64": "x86_64",
+    "arm64": "arm64"
+  }
+}

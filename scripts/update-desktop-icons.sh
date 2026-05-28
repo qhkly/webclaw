@@ -106,7 +106,7 @@ EOF
 
     local layout=""
     local first_group=true
-    for group in ai audiomedia system office dev graphics network utility; do
+    for group in ai audiomedia system office social dev graphics network utility; do
         local group_xml=""
         for manifest in "$MANIFEST_DIR"/*.json; do
             [ -f "$manifest" ] || continue
