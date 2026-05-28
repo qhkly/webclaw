@@ -72,3 +72,8 @@ ubuntu ALL=(root) NOPASSWD: /usr/bin/supervisorctl *
 ubuntu ALL=(root) NOPASSWD: /opt/qq-install-wrapper.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-qq.sh
 ubuntu ALL=(root) NOPASSWD: /opt/uninstall-qq.sh
+
+# Telegram 安装专用权限（custom_script 模式）
+ubuntu ALL=(root) NOPASSWD: /opt/telegram-install-wrapper.sh
+ubuntu ALL=(root) NOPASSWD: /opt/install-telegram.sh
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-telegram.sh

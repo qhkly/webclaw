@@ -167,6 +167,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo "GatewayPorts no" >> /etc/ssh/sshd_config \
     && echo "X11Forwarding no" >> /etc/ssh/sshd_config
 
+# ─── 8d. Snapd (用于 Telegram Desktop 等 snap 应用安装) ───────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        snapd \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && ln -s /var/lib/snapd/snap /snap || true
+
 # ─── 9. Docker CLI + daemon (auto-detect arch) ───────────────────────
 # docker-ce and containerd.io are needed for DinD mode; cli is the primary use case.
 # Packages are installed but daemon is NOT started by default — startup.sh handles DinD.
@@ -383,6 +389,12 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/webclaw-desktop-panel-safe-refresh.sh /usr/local/bin/webclaw-desktop-panel-safe-refresh \
     && cp /tmp/_scripts/install-antigravity.sh /usr/local/bin/install-antigravity \
     && cp /tmp/_scripts/preinstall-on-demand.sh /usr/local/bin/preinstall-on-demand.sh \
+    && cp /tmp/_configs/install-qq.sh /opt/install-qq.sh \
+    && cp /tmp/_configs/uninstall-qq.sh /opt/uninstall-qq.sh \
+    && cp /tmp/_configs/qq-install-wrapper.sh /opt/qq-install-wrapper.sh \
+    && cp /tmp/_configs/install-telegram.sh /opt/install-telegram.sh \
+    && cp /tmp/_configs/uninstall-telegram.sh /opt/uninstall-telegram.sh \
+    && cp /tmp/_configs/telegram-install-wrapper.sh /opt/telegram-install-wrapper.sh \
     && cp -r /tmp/_scripts/on-demand-helpers/ /usr/local/bin/on-demand-helpers/ \
     && cp /tmp/_scripts/startup.sh /opt/startup.sh \
     && cp /tmp/_scripts/init-skills.sh /opt/init-skills.sh \
@@ -419,6 +431,8 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /usr/local/bin/install-antigravity \
         /usr/local/bin/preinstall-on-demand.sh \
         /usr/local/bin/on-demand-helpers/*.sh \
+        /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
+        /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
         /opt/startup.sh /opt/init-skills.sh /usr/local/bin/run-cloudflared.sh \
         /scripts/analytics.sh /usr/local/bin/dockerd-condition.sh \
         /opt/backup.sh /opt/restore.sh /opt/snapshot.sh /opt/snapshot-restore.sh /opt/snapshot-base.sh \
@@ -431,11 +445,15 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
         /opt/install-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
         /opt/webclaw-upgrader-install-wrapper.sh \
+        /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
+        /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
     && chmod 755 /opt/install-hermes.sh /opt/uninstall-hermes.sh \
         /opt/hermes-install-wrapper.sh \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
         /opt/install-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
         /opt/webclaw-upgrader-install-wrapper.sh \
+        /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
+        /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
     && mkdir -p /opt/dashboard-override \
     && chown -R ubuntu:ubuntu /opt/dashboard-override \
     && printf '\n# Theme switch aliases\nalias light-mode="/usr/local/bin/theme-switch light"\nalias dark-mode="/usr/local/bin/theme-switch dark"\n' >> /home/ubuntu/.bashrc \
