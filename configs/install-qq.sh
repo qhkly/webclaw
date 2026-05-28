@@ -67,16 +67,22 @@ update_progress_desc "搜索可用的 QQ 下载源..."
 # 定义多个可能的下载源
 declare -A DOWNLOAD_SOURCES
 
-# 当前已知的下载源（需要定期更新）
-DOWNLOAD_SOURCES[github1]="https://github.com/linuxqq/linuxqq-releases/releases/download/v3.2.28/LinuxQQ_v3.2.28_${ARCH_SUFFIX}.deb"
-DOWNLOAD_SOURCES[qqcdn1]="https://dldir1v6.qq.com/qqfile/qq/QQNT/LinuxQQ_3.2.28_${ARCH_SUFFIX}.deb"
-DOWNLOAD_SOURCES[qqcdn2]="https://dldir1.qq.com/qqfile/qq/QQNT/LinuxQQ_3.2.28_${ARCH_SUFFIX}.deb"
-DOWNLOAD_SOURCES[qqcdn3]="https://down.qq.com/qqweb/LinuxQQ_3.2.28_${ARCH_SUFFIX}.deb"
-DOWNLOAD_SOURCES[qqpc]="https://qq.pc.qq.com/LinuxQQ_3.2.28_${ARCH_SUFFIX}.deb"
+# 正确的下载链接格式（包含日期和序号）
+# 格式：https://dldir1v6.qq.com/qqfile/qq/QQNT/Linux/QQ_3.2.28_260429_${ARCH_SUFFIX}_01.deb
+DOWNLOAD_SOURCES[qqv6_3_2_28]="https://dldir1v6.qq.com/qqfile/qq/QQNT/Linux/QQ_3.2.28_260429_${ARCH_SUFFIX}_01.deb"
+DOWNLOAD_SOURCES[qqv6_3_2_6]="https://dldir1v6.qq.com/qqfile/qq/QQNT/Linux/QQ_3.2.6_260429_${ARCH_SUFFIX}_01.deb"
+DOWNLOAD_SOURCES[qqv6_3_1_2]="https://dldir1v6.qq.com/qqfile/qq/QQNT/Linux/QQ_3.1.2_260429_${ARCH_SUFFIX}_01.deb"
 
-# 尝试其他版本号
-for VER in "3.2.6" "3.1.2" "3.1.0"; do
-    DOWNLOAD_SOURCES[qqcdn${VER}]="https://dldir1.qq.com/qqfile/qq/QQNT/LinuxQQ_${VER}_${ARCH_SUFFIX}.deb"
+# 备用格式（不包含日期序号）
+DOWNLOAD_SOURCES[qqv6_simple]="https://dldir1v6.qq.com/qqfile/qq/QQNT/Linux/QQ_3.2.28_${ARCH_SUFFIX}.deb"
+DOWNLOAD_SOURCES[qqv1_simple]="https://dldir1.qq.com/qqfile/qq/QQNT/Linux/QQ_3.2.28_${ARCH_SUFFIX}.deb"
+
+# GitHub releases（备用）
+DOWNLOAD_SOURCES[github1]="https://github.com/linuxqq/linuxqq-releases/releases/download/v3.2.28/LinuxQQ_v3.2.28_${ARCH_SUFFIX}.deb"
+
+# 尝试其他版本号和日期
+for VER in "3.2.6" "3.1.2"; do
+    DOWNLOAD_SOURCES[qqv6${VER}]="https://dldir1v6.qq.com/qqfile/qq/QQNT/Linux/QQ_${VER}_260429_${ARCH_SUFFIX}_01.deb"
 done
 
 log "测试 ${#DOWNLOAD_SOURCES[@]} 个可能的下载源"
