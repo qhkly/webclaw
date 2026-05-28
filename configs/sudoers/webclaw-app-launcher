@@ -67,3 +67,8 @@ ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -y python3-venv python3-pip
 ubuntu ALL=(root) NOPASSWD: /usr/bin/git
 ubuntu ALL=(root) NOPASSWD: /bin/chown
 ubuntu ALL=(root) NOPASSWD: /usr/bin/supervisorctl *
+
+# QQ 安装专用权限
+ubuntu ALL=(root) NOPASSWD: /opt/qq-install-wrapper.sh
+ubuntu ALL=(root) NOPASSWD: /opt/install-qq.sh
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-qq.sh

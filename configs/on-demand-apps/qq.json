@@ -1,0 +1,12 @@
+{
+  "id": "qq",
+  "group": "social",
+  "name": "QQ",
+  "name_zh_CN": "QQ",
+  "package": "linuxqq",
+  "binary": "/opt/QQ/qq",
+  "install_method": "custom_script",
+  "install_script": "/opt/install-qq.sh",
+  "install_wrapper": "/opt/qq-install-wrapper.sh",
+  "uninstall_script": "/opt/uninstall-qq.sh"
+}
