@@ -51,6 +51,16 @@ case "$APP_ID" in
             update-desktop-database /usr/share/applications 2>/dev/null || true
         fi
         ;;
+    qq)
+        # QQ 官方 desktop 文件使用 Categories=Network，导致被归类到"互联网"分类
+        # 修改为更合适的分类
+        if [ -f /usr/share/applications/qq.desktop ]; then
+            # 完全移除 Network 分类，使用更合适的分类
+            sed -i 's|Categories=Network;|Categories=GNOME;GTK;Utility;|' \
+                /usr/share/applications/qq.desktop
+            update-desktop-database /usr/share/applications 2>/dev/null || true
+        fi
+        ;;
     *)
         # 没有钩子的应用直接成功返回（避免 launcher 误判失败）
         exit 0
