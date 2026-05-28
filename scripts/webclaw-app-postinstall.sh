@@ -53,10 +53,23 @@ case "$APP_ID" in
         ;;
     qq)
         # QQ 官方 desktop 文件使用 Categories=Network，导致被归类到"互联网"分类
-        # 修改为更合适的分类
+        # 创建社交工具分类并修正 QQ 的分类
+        # 创建社交工具分类目录
+        if [ ! -f /usr/share/desktop-directories/social-tools.directory ]; then
+            cat > /usr/share/desktop-directories/social-tools.directory <<'EOF'
+[Desktop Entry]
+Name=Social Tools
+Name[zh_CN]=社交工具
+Comment=Social and communication applications
+Comment[zh_CN]=社交和通讯应用
+Icon=empathy
+Type=Directory
+EOF
+        fi
+
+        # 修改 QQ desktop 文件，使用社交工具分类
         if [ -f /usr/share/applications/qq.desktop ]; then
-            # 完全移除 Network 分类，使用更合适的分类
-            sed -i 's|Categories=Network;|Categories=GNOME;GTK;Utility;|' \
+            sed -i 's|Categories=.*$|Categories=social-tools;GNOME;GTK;Network;|' \
                 /usr/share/applications/qq.desktop
             update-desktop-database /usr/share/applications 2>/dev/null || true
         fi
