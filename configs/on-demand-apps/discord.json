@@ -1,0 +1,15 @@
+{
+  "id": "discord",
+  "group": "social",
+  "name": "Discord",
+  "name_zh_CN": "Discord",
+  "package": "discord",
+  "binary": "/opt/ondemand-apps/discord/Discord/discord",
+  "install_method": "custom_script",
+  "install_script": "/opt/install-discord.sh",
+  "architectures": ["amd64"],
+  "description": "Discord - 语音、视频和文字通讯",
+  "description_zh_CN": "Discord - 语音、视频和文字通讯应用",
+  "description_arch_limit": "仅支持 x86_64/amd64 架构",
+  "description_arch_limit_zh_CN": "注意：仅支持 x86_64/amd64 架构，ARM64 暂不支持"
+}

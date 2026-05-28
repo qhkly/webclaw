@@ -395,6 +395,8 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_configs/install-telegram.sh /opt/install-telegram.sh \
     && cp /tmp/_configs/uninstall-telegram.sh /opt/uninstall-telegram.sh \
     && cp /tmp/_configs/telegram-install-wrapper.sh /opt/telegram-install-wrapper.sh \
+    && cp /tmp/_configs/install-discord.sh /opt/install-discord.sh \
+    && cp /tmp/_configs/uninstall-discord.sh /opt/uninstall-discord.sh \
     && cp -r /tmp/_scripts/on-demand-helpers/ /usr/local/bin/on-demand-helpers/ \
     && cp /tmp/_scripts/startup.sh /opt/startup.sh \
     && cp /tmp/_scripts/init-skills.sh /opt/init-skills.sh \
@@ -433,6 +435,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /usr/local/bin/on-demand-helpers/*.sh \
         /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
+        /opt/install-discord.sh /opt/uninstall-discord.sh \
         /opt/startup.sh /opt/init-skills.sh /usr/local/bin/run-cloudflared.sh \
         /scripts/analytics.sh /usr/local/bin/dockerd-condition.sh \
         /opt/backup.sh /opt/restore.sh /opt/snapshot.sh /opt/snapshot-restore.sh /opt/snapshot-base.sh \
@@ -447,6 +450,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/webclaw-upgrader-install-wrapper.sh \
         /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
+        /opt/install-discord.sh /opt/uninstall-discord.sh \
     && chmod 755 /opt/install-hermes.sh /opt/uninstall-hermes.sh \
         /opt/hermes-install-wrapper.sh \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
@@ -454,6 +458,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/webclaw-upgrader-install-wrapper.sh \
         /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
+        /opt/install-discord.sh /opt/uninstall-discord.sh \
     && mkdir -p /opt/dashboard-override \
     && chown -R ubuntu:ubuntu /opt/dashboard-override \
     && printf '\n# Theme switch aliases\nalias light-mode="/usr/local/bin/theme-switch light"\nalias dark-mode="/usr/local/bin/theme-switch dark"\n' >> /home/ubuntu/.bashrc \

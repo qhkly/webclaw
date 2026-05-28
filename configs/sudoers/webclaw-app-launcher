@@ -77,3 +77,7 @@ ubuntu ALL=(root) NOPASSWD: /opt/uninstall-qq.sh
 ubuntu ALL=(root) NOPASSWD: /opt/telegram-install-wrapper.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-telegram.sh
 ubuntu ALL=(root) NOPASSWD: /opt/uninstall-telegram.sh
+
+# Discord 安装专用权限（custom_script 模式）
+ubuntu ALL=(root) NOPASSWD: /opt/install-discord.sh
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-discord.sh
