@@ -378,6 +378,8 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/uninstall-webcode-ai-studio.sh /opt/uninstall-webcode-ai-studio.sh \
     && cp /tmp/_scripts/install-webcode-git-manager.sh /opt/install-webcode-git-manager.sh \
     && cp /tmp/_scripts/uninstall-webcode-git-manager.sh /opt/uninstall-webcode-git-manager.sh \
+    && cp /tmp/_scripts/install-webclaw-software-manager.sh /opt/install-webclaw-software-manager.sh \
+    && cp /tmp/_scripts/uninstall-webclaw-software-manager.sh /opt/uninstall-webclaw-software-manager.sh \
     && cp /tmp/_scripts/hermes-launcher.sh /usr/local/bin/hermes-launcher \
     && cp /tmp/_scripts/start-hermes-dashboard.sh /opt/start-hermes-dashboard.sh \
     && cp /tmp/_scripts/hermes-browser.sh /opt/hermes-browser.sh \
@@ -429,6 +431,8 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/uninstall-webcode-ai-studio.sh \
         /opt/install-webcode-git-manager.sh \
         /opt/uninstall-webcode-git-manager.sh \
+        /opt/install-webclaw-software-manager.sh \
+        /opt/uninstall-webclaw-software-manager.sh \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
         /usr/local/bin/browser /usr/local/bin/launchpad \
         /usr/local/bin/webclaw-app-launcher /usr/local/bin/webclaw-app-uninstaller \
@@ -455,6 +459,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
         /opt/install-discord.sh /opt/uninstall-discord.sh \
+        /opt/install-webclaw-software-manager.sh /opt/uninstall-webclaw-software-manager.sh \
     && chmod 755 /opt/install-hermes.sh /opt/uninstall-hermes.sh \
         /opt/hermes-install-wrapper.sh \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
@@ -463,6 +468,14 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
         /opt/install-discord.sh /opt/uninstall-discord.sh \
+        /opt/install-webclaw-software-manager.sh /opt/uninstall-webclaw-software-manager.sh \
+        /opt/install-webclaw-software-manager.sh /opt/uninstall-webclaw-software-manager.sh \
+    && mkdir -p /opt/install-scripts \
+    && (curl -fsSL "https://github.com/qhkly/webclaw-software-manager/archive/refs/heads/main.tar.gz" \
+        | tar -xz --strip-components=2 -C /opt/install-scripts/ "webclaw-software-manager-main/scripts/" 2>/dev/null \
+        || true) \
+    && chmod +x /opt/install-scripts/*.sh 2>/dev/null || true \
+    && chown -R root:root /opt/install-scripts \
     && mkdir -p /opt/dashboard-override \
     && chown -R ubuntu:ubuntu /opt/dashboard-override \
     && printf '\n# Theme switch aliases\nalias light-mode="/usr/local/bin/theme-switch light"\nalias dark-mode="/usr/local/bin/theme-switch dark"\n' >> /home/ubuntu/.bashrc \
@@ -582,6 +595,15 @@ ARG WEBCODE_GIT_MANAGER_VERSION=latest
 RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
         WEBCLAW_DOCKER_BUILD=1 WEBCODE_GIT_MANAGER_VERSION="${WEBCODE_GIT_MANAGER_VERSION}" \
         bash /opt/install-webcode-git-manager.sh; \
+    fi
+
+# ─── webclaw-software-manager (仅桌面版本) ──────────────────────────
+# 图形化软件管理器，提供容器内应用的安装/升级/卸载界面
+# 仅 INSTALL_DESKTOP=true 时安装，通过安装脚本从 GitHub Release 拉取 .deb
+ARG WEBCLAW_SOFTWARE_MANAGER_VERSION=latest
+RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
+        WEBCLAW_DOCKER_BUILD=1 \
+        bash /opt/install-webclaw-software-manager.sh; \
     fi
 
 # ─── Metadata ───────────────────────────────────────────────────────

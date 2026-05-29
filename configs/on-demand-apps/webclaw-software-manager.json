@@ -1,0 +1,13 @@
+{
+  "id": "webclaw-software-manager",
+  "group": "system",
+  "name": "Software Manager",
+  "package": "webclaw-software-manager",
+  "binary": "/usr/bin/webclaw-software-manager",
+  "install_method": "custom_script",
+  "install_script": "/opt/install-webclaw-software-manager.sh",
+  "uninstall_script": "/opt/uninstall-webclaw-software-manager.sh",
+  "icon": "/opt/on-demand-icons/webclaw-software-manager.png",
+  "requires_terminal": false,
+  "description": "WebClaw 软件管理器，提供图形化的应用安装与升级界面"
+}

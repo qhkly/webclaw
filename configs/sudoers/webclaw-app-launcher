@@ -129,3 +129,9 @@ ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-eclipse.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-eclipse.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-android-studio.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-android-studio.sh
+
+# webclaw-software-manager 安装专用权限
+ubuntu ALL=(root) NOPASSWD: /opt/install-webclaw-software-manager.sh
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-webclaw-software-manager.sh
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webclaw-software-manager.sh
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webclaw-software-manager.sh

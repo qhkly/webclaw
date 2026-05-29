@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Software Manager
+GenericName=软件管理器
+Comment=WebClaw 软件安装与升级管理
+Comment[zh_CN]=图形化管理容器内应用的安装、升级与卸载
+Exec=/usr/local/bin/webclaw-app-launcher webclaw-software-manager
+Icon=/opt/on-demand-icons/webclaw-software-manager.png
+Type=Application
+Categories=System;
+StartupNotify=true
+StartupWMClass=webclaw-software-manager
