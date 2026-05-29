@@ -5,6 +5,7 @@
   "name_zh_CN": "微信",
   "package": "wechat",
   "binary": "/opt/wechat/RadiumWMPF/runtime/WeChatAppEx",
+  "launch_binary": "/usr/bin/wechat",
   "install_method": "direct_download",
   "download_url": "https://dldir1v6.qq.com/weixin/Universal/Linux/WeChatLinux_{arch_suffix}.deb",
   "arch_map": {
