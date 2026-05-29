@@ -1,0 +1,16 @@
+{
+  "id": "webcode-ai-studio",
+  "group": "ai",
+  "name": "AI CLI Studio",
+  "name_zh_CN": "AI CLI Studio",
+  "package": "ai-cli-studio",
+  "binary": "/usr/bin/webcode-ai-studio",
+  "install_method": "custom_script",
+  "install_script": "/opt/install-webcode-ai-studio.sh",
+  "uninstall_script": "/opt/uninstall-webcode-ai-studio.sh",
+  "launch_binary": "/usr/bin/webcode-ai-studio",
+  "icon": "/opt/on-demand-icons/webcode-ai-studio.png",
+  "requires_terminal": false,
+  "description": "AI CLI Session Manager",
+  "description_zh_CN": "AI 编程 CLI 会话管理工具"
+}

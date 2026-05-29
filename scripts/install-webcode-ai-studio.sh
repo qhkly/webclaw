@@ -25,9 +25,13 @@ PROGRESS_FILE="/tmp/webcode_ai_studio_progress"
 R2_BASE="https://launcher.qhkly.com"
 PRODUCT_PATH="launcher/webcode-ai-studio"
 
-# 检查是否已安装
+# 检查是否已安装（deb 包 或 AppImage 安装方式）
 if dpkg -s ai-cli-studio 2>/dev/null | grep -q "Status: install ok installed"; then
     echo "[INFO] ai-cli-studio 已安装，跳过"
+    exit 0
+fi
+if [ -f "/usr/bin/webcode-ai-studio" ]; then
+    echo "[INFO] webcode-ai-studio 已安装，跳过"
     exit 0
 fi
 
@@ -97,19 +101,48 @@ install_main() {
     # 解压 zip 获取 deb 包
     unzip -q "${TMP_DIR}/ai-cli-studio.zip" -d "${TMP_DIR}/"
 
-    # 查找 deb 文件
+    # 查找 deb 或 AppImage 文件
     DEB_FILE=$(find "${TMP_DIR}" -name "*.deb" | head -n1)
-    if [ -z "$DEB_FILE" ]; then
-        echo "[ERROR] 无法找到 deb 文件"
+    APPIMAGE_FILE=$(find "${TMP_DIR}" -name "*.AppImage" | head -n1)
+
+    if [ -n "$DEB_FILE" ]; then
+        echo "[INFO] 安装 deb 包: $(basename "$DEB_FILE")"
+        dpkg -i "$DEB_FILE" || apt-get install -fy
+    elif [ -n "$APPIMAGE_FILE" ]; then
+        echo "[INFO] 安装 AppImage: $(basename "$APPIMAGE_FILE")"
+        chmod +x "$APPIMAGE_FILE"
+        # 提取 AppImage（无需 FUSE）
+        EXTRACT_DIR="${TMP_DIR}/squashfs"
+        mkdir -p "$EXTRACT_DIR"
+        cd "$EXTRACT_DIR"
+        "$APPIMAGE_FILE" --appimage-extract 2>/dev/null || true
+        BINARY=$(find "${EXTRACT_DIR}/squashfs-root" -type f -name "webcode-ai-studio" ! -name "*.so" | head -n1)
+        if [ -z "$BINARY" ]; then
+            echo "[ERROR] 无法在 AppImage 中找到 webcode-ai-studio 二进制文件"
+            ls -la "${EXTRACT_DIR}/squashfs-root/usr/bin/" 2>/dev/null || true
+            rm -rf "$TMP_DIR"
+            exit 1
+        fi
+        echo "[INFO] 找到二进制文件: $BINARY"
+        mkdir -p /opt/ai-cli-studio
+        cp "$BINARY" /opt/ai-cli-studio/webcode-ai-studio
+        chmod +x /opt/ai-cli-studio/webcode-ai-studio
+        ln -sf /opt/ai-cli-studio/webcode-ai-studio /usr/bin/webcode-ai-studio
+    else
+        echo "[ERROR] 无法找到 deb 或 AppImage 文件"
         rm -rf "$TMP_DIR"
         exit 1
     fi
 
-    echo "[INFO] 安装 deb 包: $(basename "$DEB_FILE")"
-    dpkg -i "$DEB_FILE" || apt-get install -fy
-
     # 清理临时文件
     rm -rf "$TMP_DIR"
+
+    # 复制图标到 on-demand-icons（供 update-desktop-icons 使用）
+    mkdir -p /opt/on-demand-icons
+    ICON_SRC=$(find /usr/share/icons/hicolor -name "webcode-ai-studio.png" | sort -r | head -n1)
+    if [ -n "$ICON_SRC" ]; then
+        cp "$ICON_SRC" /opt/on-demand-icons/webcode-ai-studio.png
+    fi
 
     echo "100" > "$PROGRESS_FILE"
     echo "[INFO] ai-cli-studio 安装完成"
@@ -132,7 +165,7 @@ else
       --no-cancel \
       --width=400
 
-    if [ -f "/opt/ai-cli-studio/ai-cli-studio" ]; then
+    if [ -f "/usr/bin/webcode-ai-studio" ]; then
         zenity --info \
           --title="安装成功" \
           --text="webcode ai studio 安装成功！\n\n可在 AI 工具菜单中找到。" \

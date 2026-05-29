@@ -456,7 +456,7 @@ FCITX_PROFILE_EOF
             ! -name 'terminal.desktop' \
             ! -name 'claude-code.desktop' \
             -exec mv -f {} /home/ubuntu/.local/share/desktop-icons/hidden/ \; 2>/dev/null || true
-        for shortcut in v2rayN openclaw claude-code codex-cli; do
+        for shortcut in v2rayN openclaw claude-code codex-cli webcode-ai-studio; do
             cp "/opt/desktop-shortcuts/${shortcut}.desktop" /home/ubuntu/Desktop/ 2>/dev/null || true
         done
         touch "$DESKTOP_DEFAULTS_MARKER"

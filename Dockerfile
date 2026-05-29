@@ -375,6 +375,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/uninstall-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
     && cp /tmp/_scripts/webclaw-upgrader-install-wrapper.sh /opt/webclaw-upgrader-install-wrapper.sh \
     && cp /tmp/_scripts/install-webcode-ai-studio.sh /opt/install-webcode-ai-studio.sh \
+    && cp /tmp/_scripts/uninstall-webcode-ai-studio.sh /opt/uninstall-webcode-ai-studio.sh \
     && cp /tmp/_scripts/install-webcode-git-manager.sh /opt/install-webcode-git-manager.sh \
     && cp /tmp/_scripts/hermes-launcher.sh /usr/local/bin/hermes-launcher \
     && cp /tmp/_scripts/start-hermes-dashboard.sh /opt/start-hermes-dashboard.sh \
@@ -424,6 +425,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/install-hermes.sh /opt/uninstall-hermes.sh /usr/local/bin/hermes-launcher \
         /opt/install-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
         /opt/webclaw-upgrader-install-wrapper.sh /opt/install-webcode-ai-studio.sh \
+        /opt/uninstall-webcode-ai-studio.sh \
         /opt/install-webcode-git-manager.sh \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
         /usr/local/bin/browser /usr/local/bin/launchpad \
