@@ -125,6 +125,21 @@ install_main() {
         mkdir -p "$EXTRACT_DIR"
         cd "$EXTRACT_DIR"
         "$APPIMAGE_FILE" --appimage-extract 2>/dev/null || true
+
+        # Docker build / QEMU 环境下 --appimage-extract 可能失败（AppImage 运行时无法访问 /proc/self/exe）
+        # 降级方案：用 unsquashfs 直接提取 squashfs 内容
+        if [ ! -d "${EXTRACT_DIR}/squashfs-root" ]; then
+            echo "[INFO] --appimage-extract 失败，改用 unsquashfs 提取..."
+            command -v unsquashfs >/dev/null 2>&1 || apt-get install -y squashfs-tools -qq 2>/dev/null
+            # AppImage = ELF 运行时 + squashfs，通过魔数 (0x73717368 小端) 定位偏移
+            SQFS_OFFSET=$(LANG=C grep -oba $'\x68\x73\x71\x73' "$APPIMAGE_FILE" 2>/dev/null | head -1 | cut -d: -f1 || true)
+            if [ -n "$SQFS_OFFSET" ]; then
+                unsquashfs -o "$SQFS_OFFSET" -d "${EXTRACT_DIR}/squashfs-root" "$APPIMAGE_FILE" 2>&1 | tail -2 || true
+            else
+                # 无偏移时让 unsquashfs 自动扫描
+                unsquashfs -d "${EXTRACT_DIR}/squashfs-root" "$APPIMAGE_FILE" 2>&1 | tail -2 || true
+            fi
+        fi
         cd /
 
         # 查找实际可执行文件（排除 .so）
@@ -132,6 +147,7 @@ install_main() {
 
         if [ -z "$BINARY" ]; then
             echo "[ERROR] 无法在 AppImage 中找到可执行文件"
+            ls -la "${EXTRACT_DIR}/squashfs-root/usr/bin/" 2>/dev/null || true
             rm -rf "$TMP_DIR"
             exit 1
         fi
