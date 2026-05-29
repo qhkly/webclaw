@@ -25,8 +25,12 @@ PROGRESS_FILE="/tmp/webcode_git_manager_progress"
 R2_BASE="https://launcher.qhkly.com"
 PRODUCT_PATH="launcher/webcode-git-manager"
 
-# 检查是否已安装
+# 检查是否已安装（deb 包 或 AppImage 安装方式）
 if dpkg -s git-manager 2>/dev/null | grep -q "Status: install ok installed"; then
+    echo "[INFO] git-manager 已安装，跳过"
+    exit 0
+fi
+if [ -f "/usr/local/bin/git-manager" ]; then
     echo "[INFO] git-manager 已安装，跳过"
     exit 0
 fi
@@ -104,6 +108,13 @@ install_main() {
     if [ -n "$DEB_FILE" ]; then
         echo "[INFO] 安装 deb 包: $(basename "$DEB_FILE")"
         dpkg -i "$DEB_FILE" || apt-get install -fy
+        # 确保 /usr/local/bin/git-manager 存在（供 on-demand 系统检测）
+        if [ ! -f "/usr/local/bin/git-manager" ]; then
+            BIN_PATH=$(which git-manager 2>/dev/null || echo "")
+            if [ -n "$BIN_PATH" ]; then
+                ln -sf "$BIN_PATH" /usr/local/bin/git-manager
+            fi
+        fi
     elif [ -n "$APPIMAGE_FILE" ]; then
         echo "[INFO] 安装 AppImage: $(basename "$APPIMAGE_FILE")"
 
@@ -142,6 +153,11 @@ EOF
         exit 1
     fi
 
+    # 复制图标到 on-demand-icons（供 update-desktop-icons 使用）
+    mkdir -p /opt/on-demand-icons
+    ICON_SRC=$(find /usr/share/icons/hicolor -name "git-manager.png" -o -name "webcode-git-manager.png" 2>/dev/null | sort -r | head -n1)
+    [ -n "$ICON_SRC" ] && cp "$ICON_SRC" /opt/on-demand-icons/webcode-git-manager.png
+
     # 清理临时文件
     rm -rf "$TMP_DIR"
 
@@ -166,7 +182,7 @@ else
       --no-cancel \
       --width=400
 
-    if dpkg -s git-manager 2>/dev/null | grep -q "Status: install ok installed"; then
+    if [ -f "/usr/local/bin/git-manager" ]; then
         zenity --info \
           --title="安装成功" \
           --text="Git Manager 安装成功！\n\n可在开发工具菜单中找到。" \

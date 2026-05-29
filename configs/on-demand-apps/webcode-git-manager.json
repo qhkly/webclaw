@@ -1,0 +1,16 @@
+{
+  "id": "webcode-git-manager",
+  "group": "development",
+  "name": "Git Manager",
+  "name_zh_CN": "Git Manager",
+  "package": "git-manager",
+  "binary": "/usr/local/bin/git-manager",
+  "install_method": "custom_script",
+  "install_script": "/opt/install-webcode-git-manager.sh",
+  "uninstall_script": "/opt/uninstall-webcode-git-manager.sh",
+  "launch_binary": "/usr/local/bin/git-manager",
+  "icon": "/opt/on-demand-icons/webcode-git-manager.png",
+  "requires_terminal": false,
+  "description": "Git Repository Manager",
+  "description_zh_CN": "Git 仓库管理工具（支持多仓库管理、查看同步状态、GitHub Actions）"
+}
