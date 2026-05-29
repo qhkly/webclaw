@@ -53,52 +53,16 @@ COPY scripts/enable-claudecodeui-platform-mode.sh /opt/enable-claudecodeui-platf
 RUN chmod +x /opt/enable-claudecodeui-platform-mode.sh && \
     bash /opt/enable-claudecodeui-platform-mode.sh
 
-# ─── 5f. 预装所有按需桌面应用 ─────────────────────────────────────────────
-# 把 configs/on-demand-apps/*.json 声明的应用按 manifest 装到与 webclaw-app-launcher
-# 期望一致的路径上,桌面图标首次点击就直接 exec,不再弹 zenity 安装框。
-# 单个应用预装失败会软兜底,运行时 launcher 仍是 fallback。
-#
-# 跳过超大软件包以减少构建时间和镜像大小:
-# - android-studio: ~1GB+
-# - intellij: ~600-800MB (JetBrains IDE)
-# - pycharm: ~600-800MB (JetBrains IDE)
-# - blender: ~500MB (3D建模)
-# - eclipse: ~200-300MB (IDE)
-# - trae: ~200MB (AI编程工具)
-# 这些应用运行时仍可通过桌面图标按需安装。
-COPY scripts/preinstall-on-demand.sh /opt/preinstall-on-demand.sh
-RUN chmod +x /opt/preinstall-on-demand.sh && \
-    PREINSTALL_REQUIRED=webclaw-launcher \
-    PREINSTALL_SKIP=android-studio,intellij,pycharm,blender,eclipse,trae,antigravity \
-    /opt/preinstall-on-demand.sh && \
+# ─── 5f. full 额外预装（由 webclaw-software-manager/preinstall-full-apps.json 管理）──
+# 预装列表在 webclaw-software-manager 仓库维护，无需改动此 Dockerfile。
+# 跳过超大 IDE（android-studio/intellij/pycharm/blender/eclipse/trae）。
+# 单个应用失败软兜底，运行时 launcher 仍可按需安装。
+RUN if [ -f /opt/preinstall-full-apps.json ] \
+    && [ -x /opt/install-scripts/preinstall.sh ]; then \
+        PREINSTALL_APPS_JSON=/opt/preinstall-full-apps.json \
+        WEBCLAW_DOCKER_BUILD=1 \
+        bash /opt/install-scripts/preinstall.sh; \
+    fi && \
     test -x /opt/webclaw-launcher/AppDir/AppRun
-
-# ─── 5g. 预装 Hermes Agent ─────────────────────────────────────────────────
-# 自进化的 AI 代理，需要 Python 3.11、git、supervisor
-# 安装时间较长（5-15分钟），因为需要克隆仓库、创建 venv、安装依赖
-# 跳过预装：HERMES_SKIP_PREINSTALL=1
-COPY scripts/hermes-install-wrapper.sh /opt/hermes-install-wrapper.sh
-COPY scripts/install-hermes.sh /opt/install-hermes.sh
-COPY scripts/uninstall-hermes.sh /opt/uninstall-hermes.sh
-COPY configs/on-demand-apps/hermes.json /opt/on-demand-apps/hermes.json
-COPY configs/desktop-icons/hermes.png /opt/desktop-icons/hermes.png
-COPY configs/desktop-icons/hermes.png /opt/on-demand-icons/hermes.png
-
-RUN if [ "${HERMES_SKIP_PREINSTALL:-0}" != "1" ]; then \
-    echo "=== 预装 Hermes Agent ===" && \
-    export DEBIAN_FRONTEND=noninteractive && \
-    export WEBCLAW_APP_LAUNCHER=1 && \
-    export DISABLE_ZENITY=1 && \
-    export HERMES_DOCKER_BUILD=1 && \
-    export DISPLAY=:1 && \
-    export XDG_RUNTIME_DIR=/run/user/1000 && \
-    mkdir -p "$XDG_RUNTIME_DIR" && \
-    chmod 700 "$XDG_RUNTIME_DIR" && \
-    cd /opt && \
-    bash /opt/install-hermes.sh && \
-    echo "✓ Hermes Agent 预装完成"; \
-else \
-    echo "⊘ Hermes Agent 预装已跳过（HERMES_SKIP_PREINSTALL=1）"; \
-fi
 
 #docker build -t land007/webclaw_full:latest .

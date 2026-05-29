@@ -477,6 +477,8 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && chown -R root:root /opt/install-scripts \
     && (curl -fsSL "https://raw.githubusercontent.com/qhkly/webclaw-software-manager/main/preinstall-apps.json" \
         -o /opt/preinstall-apps.json 2>/dev/null || true) \
+    && (curl -fsSL "https://raw.githubusercontent.com/qhkly/webclaw-software-manager/main/preinstall-full-apps.json" \
+        -o /opt/preinstall-full-apps.json 2>/dev/null || true) \
     && mkdir -p /opt/dashboard-override \
     && chown -R ubuntu:ubuntu /opt/dashboard-override \
     && printf '\n# Theme switch aliases\nalias light-mode="/usr/local/bin/theme-switch light"\nalias dark-mode="/usr/local/bin/theme-switch dark"\n' >> /home/ubuntu/.bashrc \
@@ -552,60 +554,6 @@ RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
         && (update-desktop-database /usr/share/applications 2>/dev/null || true); \
     fi \
     && rm -rf /tmp/_configs /tmp/_scripts
-
-# ─── webclaw-upgrader (仅桌面版本) ──────────────────────────────────
-# 容器内的软件升级管理 + supervisor 状态板,需要 GUI 桌面
-# 仅 INSTALL_DESKTOP=true 时安装,通过安装脚本从 GitHub Release 拉取 .deb
-#
-# 每次构建拿最新版本:
-#   - 默认 ARG=latest,通过 GitHub API 解析 tag_name
-#   - 也可显式锁定: docker build --build-arg WEBCLAW_UPGRADER_VERSION=0.1.2 ...
-# 注: Docker 层缓存会复用,需要刷新时传变化的 ARG 或加 --no-cache
-# 卸载: 右键桌面图标 → 卸载,或 /opt/uninstall-webclaw-upgrader.sh
-ARG WEBCLAW_UPGRADER_VERSION=latest
-RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
-        WEBCLAW_DOCKER_BUILD=1 WEBCLAW_UPGRADER_VERSION="${WEBCLAW_UPGRADER_VERSION}" \
-        bash /opt/install-webclaw-upgrader.sh; \
-    fi
-
-# ─── webcode-ai-studio (仅桌面版本) ──────────────────────────────────
-# AI 编程 CLI 会话管理工具,需要 GUI 桌面
-# 仅 INSTALL_DESKTOP=true 时安装,通过安装脚本从 R2 拉取 .deb
-#
-# 每次构建拿最新版本:
-#   - 默认 ARG=latest,通过 R2 metadata 解析版本
-#   - 也可显式锁定: docker build --build-arg WEBCODE_AI_STUDIO_VERSION=0.1.16 ...
-# 注: Docker 层缓存会复用,需要刷新时传变化的 ARG 或加 --no-cache
-# 卸载: apt-get remove ai-cli-studio
-ARG WEBCODE_AI_STUDIO_VERSION=latest
-RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
-        WEBCLAW_DOCKER_BUILD=1 WEBCODE_AI_STUDIO_VERSION="${WEBCODE_AI_STUDIO_VERSION}" \
-        bash /opt/install-webcode-ai-studio.sh; \
-    fi
-
-# ─── webcode-git-manager (仅桌面版本) ──────────────────────────────────
-# Git 仓库管理工具,需要 GUI 桌面
-# 仅 INSTALL_DESKTOP=true 时安装,通过安装脚本从 R2 拉取 .deb
-#
-# 每次构建拿最新版本:
-#   - 默认 ARG=latest,通过 R2 metadata 解析版本
-#   - 也可显式锁定: docker build --build-arg WEBCODE_GIT_MANAGER_VERSION=0.1.9 ...
-# 注: Docker 层缓存会复用,需要刷新时传变化的 ARG 或加 --no-cache
-# 卸载: apt-get remove git-manager
-ARG WEBCODE_GIT_MANAGER_VERSION=latest
-RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
-        WEBCLAW_DOCKER_BUILD=1 WEBCODE_GIT_MANAGER_VERSION="${WEBCODE_GIT_MANAGER_VERSION}" \
-        bash /opt/install-webcode-git-manager.sh; \
-    fi
-
-# ─── webclaw-software-manager (仅桌面版本) ──────────────────────────
-# 图形化软件管理器，提供容器内应用的安装/升级/卸载界面
-# 仅 INSTALL_DESKTOP=true 时安装，通过安装脚本从 GitHub Release 拉取 .deb
-ARG WEBCLAW_SOFTWARE_MANAGER_VERSION=latest
-RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
-        WEBCLAW_DOCKER_BUILD=1 \
-        bash /opt/install-webclaw-software-manager.sh; \
-    fi
 
 # ─── 通过 webclaw-software-manager 预装清单预装 app ──────────────────
 RUN if [ "$INSTALL_DESKTOP" = "true" ] \
