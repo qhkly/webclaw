@@ -475,6 +475,8 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         || true) \
     && chmod +x /opt/install-scripts/*.sh 2>/dev/null || true \
     && chown -R root:root /opt/install-scripts \
+    && (curl -fsSL "https://raw.githubusercontent.com/qhkly/webclaw-software-manager/main/preinstall-apps.json" \
+        -o /opt/preinstall-apps.json 2>/dev/null || true) \
     && mkdir -p /opt/dashboard-override \
     && chown -R ubuntu:ubuntu /opt/dashboard-override \
     && printf '\n# Theme switch aliases\nalias light-mode="/usr/local/bin/theme-switch light"\nalias dark-mode="/usr/local/bin/theme-switch dark"\n' >> /home/ubuntu/.bashrc \
@@ -603,6 +605,13 @@ ARG WEBCLAW_SOFTWARE_MANAGER_VERSION=latest
 RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
         WEBCLAW_DOCKER_BUILD=1 \
         bash /opt/install-webclaw-software-manager.sh; \
+    fi
+
+# ─── 通过 webclaw-software-manager 预装清单预装 app ──────────────────
+RUN if [ "$INSTALL_DESKTOP" = "true" ] \
+    && [ -f /opt/preinstall-apps.json ] \
+    && [ -x /opt/install-scripts/preinstall.sh ]; then \
+        WEBCLAW_DOCKER_BUILD=1 bash /opt/install-scripts/preinstall.sh; \
     fi
 
 # ─── Metadata ───────────────────────────────────────────────────────
