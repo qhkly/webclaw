@@ -148,12 +148,16 @@ install_main() {
         ACTUAL_BINARY=$(find "$INSTALL_DIR" -maxdepth 4 -type f -name "$BINARY_NAME" ! -name "*.so" | head -n1)
         chmod +x "$ACTUAL_BINARY"
 
-        # 创建启动脚本（设置 APPDIR 供 Tauri 资源查找）
+        # 创建启动脚本：通过 AppRun 启动（不能直接运行二进制）
+        # AppRun 脚本会 source apprun-hooks/linuxdeploy-plugin-gtk.sh 设置 GTK 环境，
+        # 再调用 AppRun.wrapped 设置完整 LD_LIBRARY_PATH（含 $APPDIR/lib/...），
+        # WebKit2GTK 子进程通过相对路径 ././/lib/.../WebKitNetworkProcess 查找自身，
+        # 必须借助 AppRun.wrapped 设置的路径才能找到。
         cat > /usr/local/bin/git-manager <<WRAPPER_EOF
 #!/bin/bash
 export APPDIR="${INSTALL_DIR}"
-export LD_LIBRARY_PATH="${INSTALL_DIR}/usr/lib:\${LD_LIBRARY_PATH:-}"
-exec "${ACTUAL_BINARY}" "\$@"
+cd "${INSTALL_DIR}"
+exec "${INSTALL_DIR}/AppRun" "\$@"
 WRAPPER_EOF
         chmod +x /usr/local/bin/git-manager
     else
