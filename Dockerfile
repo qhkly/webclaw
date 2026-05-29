@@ -469,7 +469,6 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
         /opt/install-discord.sh /opt/uninstall-discord.sh \
         /opt/install-webclaw-software-manager.sh /opt/uninstall-webclaw-software-manager.sh \
-        /opt/install-webclaw-software-manager.sh /opt/uninstall-webclaw-software-manager.sh \
     && mkdir -p /opt/install-scripts \
     && (curl -fsSL "https://github.com/qhkly/webclaw-software-manager/archive/refs/heads/main.tar.gz" \
         | tar -xz --strip-components=2 -C /opt/install-scripts/ "webclaw-software-manager-main/scripts/" 2>/dev/null \
