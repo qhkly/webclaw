@@ -109,25 +109,64 @@ install_main() {
         echo "[INFO] 安装 deb 包: $(basename "$DEB_FILE")"
         dpkg -i "$DEB_FILE" || apt-get install -fy
     elif [ -n "$APPIMAGE_FILE" ]; then
-        echo "[INFO] 安装 AppImage: $(basename "$APPIMAGE_FILE")"
+        echo "[INFO] 安装 AppImage（提取模式，无需 FUSE）: $(basename "$APPIMAGE_FILE")"
+
         chmod +x "$APPIMAGE_FILE"
+
         # 提取 AppImage（无需 FUSE）
-        EXTRACT_DIR="${TMP_DIR}/squashfs"
+        EXTRACT_DIR="${TMP_DIR}/extracted"
         mkdir -p "$EXTRACT_DIR"
         cd "$EXTRACT_DIR"
         "$APPIMAGE_FILE" --appimage-extract 2>/dev/null || true
-        BINARY=$(find "${EXTRACT_DIR}/squashfs-root" -type f -name "webcode-ai-studio" ! -name "*.so" | head -n1)
+
+        # Docker build / QEMU 环境下 --appimage-extract 可能失败（AppImage 运行时无法访问 /proc/self/exe）
+        # 降级方案：用 unsquashfs 直接提取 squashfs 内容
+        if [ ! -d "${EXTRACT_DIR}/squashfs-root" ]; then
+            echo "[INFO] --appimage-extract 失败，改用 unsquashfs 提取..."
+            command -v unsquashfs >/dev/null 2>&1 || apt-get install -y squashfs-tools -qq 2>/dev/null
+            # AppImage = ELF 运行时 + squashfs，通过魔数 (0x73717368 小端) 定位偏移
+            SQFS_OFFSET=$(LANG=C grep -oba $'\x68\x73\x71\x73' "$APPIMAGE_FILE" 2>/dev/null | head -1 | cut -d: -f1 || true)
+            if [ -n "$SQFS_OFFSET" ]; then
+                unsquashfs -o "$SQFS_OFFSET" -d "${EXTRACT_DIR}/squashfs-root" "$APPIMAGE_FILE" 2>&1 | tail -2 || true
+            else
+                unsquashfs -d "${EXTRACT_DIR}/squashfs-root" "$APPIMAGE_FILE" 2>&1 | tail -2 || true
+            fi
+        fi
+        cd /
+
+        # 查找实际可执行文件（排除 .so）
+        BINARY=$(find "${EXTRACT_DIR}/squashfs-root" -maxdepth 4 -type f -name "webcode-ai-studio" ! -name "*.so" 2>/dev/null | head -n1)
+
         if [ -z "$BINARY" ]; then
-            echo "[ERROR] 无法在 AppImage 中找到 webcode-ai-studio 二进制文件"
+            echo "[ERROR] 无法在 AppImage 中找到可执行文件"
             ls -la "${EXTRACT_DIR}/squashfs-root/usr/bin/" 2>/dev/null || true
             rm -rf "$TMP_DIR"
             exit 1
         fi
-        echo "[INFO] 找到二进制文件: $BINARY"
-        mkdir -p /opt/ai-cli-studio
-        cp "$BINARY" /opt/ai-cli-studio/webcode-ai-studio
-        chmod +x /opt/ai-cli-studio/webcode-ai-studio
-        ln -sf /opt/ai-cli-studio/webcode-ai-studio /usr/bin/webcode-ai-studio
+
+        echo "[INFO] 找到二进制: $BINARY"
+
+        # 将提取内容移动到 /opt/ai-cli-studio
+        INSTALL_DIR="/opt/ai-cli-studio"
+        rm -rf "$INSTALL_DIR"
+        mv "${EXTRACT_DIR}/squashfs-root" "$INSTALL_DIR"
+
+        # 确定安装后的实际二进制路径
+        BINARY_NAME=$(basename "$BINARY")
+        ACTUAL_BINARY=$(find "$INSTALL_DIR" -maxdepth 4 -type f -name "$BINARY_NAME" ! -name "*.so" | head -n1)
+        chmod +x "$ACTUAL_BINARY"
+
+        # 创建启动脚本：通过 AppRun 启动（不能直接运行二进制）
+        # AppRun.wrapped 设置完整 LD_LIBRARY_PATH（含 $APPDIR/lib/...），
+        # WebKit2GTK 子进程通过相对路径 ././/lib/.../WebKitNetworkProcess 查找自身，
+        # 必须借助 AppRun.wrapped 设置的路径才能找到。
+        cat > /usr/bin/webcode-ai-studio <<WRAPPER_EOF
+#!/bin/bash
+export APPDIR="${INSTALL_DIR}"
+cd "${INSTALL_DIR}"
+exec "${INSTALL_DIR}/AppRun" "\$@"
+WRAPPER_EOF
+        chmod +x /usr/bin/webcode-ai-studio
     else
         echo "[ERROR] 无法找到 deb 或 AppImage 文件"
         rm -rf "$TMP_DIR"
