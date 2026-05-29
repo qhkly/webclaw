@@ -18,8 +18,8 @@ fi
 
 ARCH=$(dpkg --print-architecture)
 case "$ARCH" in
-    amd64) ARCH_KEY="amd64" ;;
-    arm64) ARCH_KEY="aarch64" ;;
+    amd64) DEB_ARCH="amd64" ;;
+    arm64) DEB_ARCH="arm64" ;;
     *)
         echo "[ERROR] 不支持的架构: $ARCH"
         exit 1
@@ -42,7 +42,8 @@ if [ -z "$LATEST_TAG" ]; then
 fi
 echo "[INFO] 安装 webclaw-software-manager v${LATEST_TAG} (${ARCH})"
 
-DEB_NAME="webclaw-software-manager_${LATEST_TAG}_${ARCH_KEY}.deb"
+# Tauri 打包产物文件名格式：Webclaw.Software.Manager_VERSION_ARCH.deb
+DEB_NAME="Webclaw.Software.Manager_${LATEST_TAG}_${DEB_ARCH}.deb"
 DOWNLOAD_URL="https://github.com/qhkly/webclaw-software-manager/releases/download/v${LATEST_TAG}/${DEB_NAME}"
 echo "[INFO] 下载: ${DOWNLOAD_URL}"
 
