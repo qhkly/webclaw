@@ -116,37 +116,46 @@ install_main() {
             fi
         fi
     elif [ -n "$APPIMAGE_FILE" ]; then
-        echo "[INFO] 安装 AppImage: $(basename "$APPIMAGE_FILE")"
+        echo "[INFO] 安装 AppImage（提取模式，无需 FUSE）: $(basename "$APPIMAGE_FILE")"
 
-        # 安装 AppImage 到 /opt 目录
+        chmod +x "$APPIMAGE_FILE"
+
+        # 提取 AppImage（无需 FUSE）
+        EXTRACT_DIR="${TMP_DIR}/extracted"
+        mkdir -p "$EXTRACT_DIR"
+        cd "$EXTRACT_DIR"
+        "$APPIMAGE_FILE" --appimage-extract 2>/dev/null || true
+        cd /
+
+        # 查找实际可执行文件（排除 .so）
+        BINARY=$(find "${EXTRACT_DIR}/squashfs-root" -maxdepth 4 -type f \( -name "git-manager" -o -name "webcode-git-manager" \) ! -name "*.so" 2>/dev/null | head -n1)
+
+        if [ -z "$BINARY" ]; then
+            echo "[ERROR] 无法在 AppImage 中找到可执行文件"
+            rm -rf "$TMP_DIR"
+            exit 1
+        fi
+
+        echo "[INFO] 找到二进制: $BINARY"
+
+        # 将提取内容移动到 /opt/git-manager
         INSTALL_DIR="/opt/git-manager"
-        mkdir -p "$INSTALL_DIR"
+        rm -rf "$INSTALL_DIR"
+        mv "${EXTRACT_DIR}/squashfs-root" "$INSTALL_DIR"
 
-        # 复制 AppImage
-        cp "$APPIMAGE_FILE" "$INSTALL_DIR/git-manager"
-        chmod +x "$INSTALL_DIR/git-manager"
+        # 确定安装后的实际二进制路径
+        BINARY_NAME=$(basename "$BINARY")
+        ACTUAL_BINARY=$(find "$INSTALL_DIR" -maxdepth 4 -type f -name "$BINARY_NAME" ! -name "*.so" | head -n1)
+        chmod +x "$ACTUAL_BINARY"
 
-        # 创建启动脚本
-        cat > /usr/local/bin/git-manager <<'EOF'
+        # 创建启动脚本（设置 APPDIR 供 Tauri 资源查找）
+        cat > /usr/local/bin/git-manager <<WRAPPER_EOF
 #!/bin/bash
-exec /opt/git-manager/git-manager "$@"
-EOF
+export APPDIR="${INSTALL_DIR}"
+export LD_LIBRARY_PATH="${INSTALL_DIR}/usr/lib:\${LD_LIBRARY_PATH:-}"
+exec "${ACTUAL_BINARY}" "\$@"
+WRAPPER_EOF
         chmod +x /usr/local/bin/git-manager
-
-        # 创建桌面快捷方式
-        cat > /usr/share/applications/git-manager.desktop <<'EOF'
-[Desktop Entry]
-Name=Git Manager
-GenericName=Git 仓库管理
-Comment=Git 仓库管理工具
-Comment[zh_CN]=Git 仓库管理工具（支持多仓库管理、查看同步状态、GitHub Actions）
-Exec=/usr/local/bin/git-manager
-Icon=git-manager
-Type=Application
-Categories=Development;
-StartupNotify=true
-StartupWMClass=git-manager
-EOF
     else
         echo "[ERROR] 无法找到 AppImage 或 deb 文件"
         rm -rf "$TMP_DIR"

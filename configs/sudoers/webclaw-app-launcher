@@ -81,3 +81,11 @@ ubuntu ALL=(root) NOPASSWD: /opt/uninstall-telegram.sh
 # Discord 安装专用权限（custom_script 模式）
 ubuntu ALL=(root) NOPASSWD: /opt/install-discord.sh
 ubuntu ALL=(root) NOPASSWD: /opt/uninstall-discord.sh
+
+# webcode-git-manager 安装专用权限（custom_script 模式）
+ubuntu ALL=(root) NOPASSWD: /opt/install-webcode-git-manager.sh
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-webcode-git-manager.sh
+
+# webcode-ai-studio 安装专用权限（custom_script 模式）
+ubuntu ALL=(root) NOPASSWD: /opt/install-webcode-ai-studio.sh
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-webcode-ai-studio.sh
