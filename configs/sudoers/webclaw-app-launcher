@@ -89,3 +89,13 @@ ubuntu ALL=(root) NOPASSWD: /opt/uninstall-webcode-git-manager.sh
 # webcode-ai-studio 安装专用权限（custom_script 模式）
 ubuntu ALL=(root) NOPASSWD: /opt/install-webcode-ai-studio.sh
 ubuntu ALL=(root) NOPASSWD: /opt/uninstall-webcode-ai-studio.sh
+
+# webclaw-software-manager 统一脚本目录权限（/opt/install-scripts/）
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webcode-git-manager.sh
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webcode-git-manager.sh
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-wechat.sh
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-wechat.sh
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-dbeaver.sh
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-dbeaver.sh
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-obsidian.sh
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-obsidian.sh
