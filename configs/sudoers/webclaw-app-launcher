@@ -5,6 +5,10 @@
 # github_release 模式: 固定路径前缀的 .deb (OpenTypeless / CC Switch 等)
 ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -y /tmp/webclaw-ondemand-*.deb
 
+# dpkg 安装任意 .deb（由 install-scripts 内部调用）
+ubuntu ALL=(root) NOPASSWD: /usr/bin/dpkg -i *
+ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -fy
+
 # 卸载模式: 由受控脚本读取 manifest 并只删除对应应用的受管安装目录或包
 ubuntu ALL=(root) NOPASSWD: /usr/local/bin/webclaw-app-uninstaller *
 
@@ -129,6 +133,9 @@ ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-eclipse.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-eclipse.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-android-studio.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-android-studio.sh
+
+# webclaw-software-manager：允许 ubuntu 以 root 身份运行 /opt/install-scripts/ 下所有脚本
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/*.sh
 
 # webclaw-software-manager 安装专用权限
 ubuntu ALL=(root) NOPASSWD: /opt/install-webclaw-software-manager.sh
