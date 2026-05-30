@@ -58,4 +58,9 @@ ICON_SRC=$(find /usr/share/icons /usr/share/pixmaps -name "webclaw-software-mana
 [ -n "$ICON_SRC" ] && cp "$ICON_SRC" /opt/on-demand-icons/webclaw-software-manager.png || true
 
 rm -rf "$TMP_DIR"
+
+# 确保缓存目录属于 ubuntu，避免首次写入时权限报错
+mkdir -p /home/ubuntu/.local/share/webclaw-software-manager
+chown -R ubuntu:ubuntu /home/ubuntu/.local/share/webclaw-software-manager
+
 echo "[INFO] webclaw-software-manager 安装完成"
