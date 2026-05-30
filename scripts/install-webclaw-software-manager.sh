@@ -54,8 +54,14 @@ echo "[INFO] 安装 deb 包..."
 dpkg -i "${TMP_DIR}/webclaw-software-manager.deb" || apt-get install -fy
 
 mkdir -p /opt/on-demand-icons
-ICON_SRC=$(find /usr/share/icons /usr/share/pixmaps -name "webclaw-software-manager.png" 2>/dev/null | sort -r | head -1)
-[ -n "$ICON_SRC" ] && cp "$ICON_SRC" /opt/on-demand-icons/webclaw-software-manager.png || true
+# 优先使用最大分辨率图标（sort -rV 让 512x512 排在 128x128 前面）；
+# 仅当找到的图标比已有的更大时才覆盖，保留 Dockerfile 预置的 512x512。
+ICON_SRC=$(find /usr/share/icons /usr/share/pixmaps -name "webclaw-software-manager.png" 2>/dev/null | sort -rV | head -1)
+if [ -n "$ICON_SRC" ]; then
+    SRC_SIZE=$(file "$ICON_SRC" | grep -o '[0-9]* x [0-9]*' | awk '{print $1}' || echo 0)
+    DST_SIZE=$(file /opt/on-demand-icons/webclaw-software-manager.png 2>/dev/null | grep -o '[0-9]* x [0-9]*' | awk '{print $1}' || echo 0)
+    [ "$SRC_SIZE" -gt "$DST_SIZE" ] 2>/dev/null && cp "$ICON_SRC" /opt/on-demand-icons/webclaw-software-manager.png || true
+fi
 
 rm -rf "$TMP_DIR"
 
