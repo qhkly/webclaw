@@ -148,6 +148,7 @@ RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
             pulseaudio pulseaudio-utils \
             python3-websockets \
             python3-pip \
+            python3-xlib \
             ffmpeg \
             libopus0 \
             gcc python3-dev \
