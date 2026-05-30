@@ -43,16 +43,46 @@ app.get('/health', (req, res) => {
 // 文本剪贴板 API：作为 noVNC 原生 clipboard 通道的兜底。
 // GET 只读取 X11 CLIPBOARD，不修改容器剪贴板。
 app.get('/api/clipboard-text', (req, res) => {
-  const child = spawn('xclip', ['-selection', 'clipboard', '-target', 'UTF8_STRING', '-o']);
-  const chunks = [];
-  child.stdout.on('data', (b) => chunks.push(b));
-  child.stderr.on('data', () => {});
-  child.on('error', () => res.status(500).json({ error: '读取文本剪贴板失败' }));
-  child.on('close', (code) => {
-    if (code !== 0 || chunks.length === 0) return res.status(404).json({ error: '没有文本剪贴板内容' });
-    res.setHeader('Cache-Control', 'no-store');
-    res.json({ text: Buffer.concat(chunks).toString('utf8') });
+  // 先查询剪贴板支持的格式，若含图像类型则拒绝以文本形式返回，
+  // 防止 PNG 二进制被当成 UTF-8 文本同步到本地导致乱码。
+  const targetsChild = spawn('xclip', ['-selection', 'clipboard', '-target', 'TARGETS', '-o']);
+  const targetChunks = [];
+  targetsChild.stdout.on('data', (b) => targetChunks.push(b));
+  targetsChild.stderr.on('data', () => {});
+  targetsChild.on('error', () => readText());
+  targetsChild.on('close', (code) => {
+    if (code === 0 && targetChunks.length > 0) {
+      const targets = Buffer.concat(targetChunks).toString('utf8');
+      if (/image\//i.test(targets)) {
+        return res.status(404).json({ error: '剪贴板包含图像，非文本内容' });
+      }
+    }
+    readText();
   });
+
+  function readText() {
+    const child = spawn('xclip', ['-selection', 'clipboard', '-target', 'UTF8_STRING', '-o']);
+    const chunks = [];
+    child.stdout.on('data', (b) => chunks.push(b));
+    child.stderr.on('data', () => {});
+    child.on('error', () => res.status(500).json({ error: '读取文本剪贴板失败' }));
+    child.on('close', (code) => {
+      if (code !== 0 || chunks.length === 0) return res.status(404).json({ error: '没有文本剪贴板内容' });
+      const buf = Buffer.concat(chunks);
+      // 检测二进制内容：若非打印字节（排除常见空白符）占比超 5%，视为二进制数据
+      const sampleLen = Math.min(buf.length, 1000);
+      let nonPrintable = 0;
+      for (let i = 0; i < sampleLen; i++) {
+        const b = buf[i];
+        if (b < 9 || (b > 13 && b < 32) || b === 127) nonPrintable++;
+      }
+      if (nonPrintable > sampleLen * 0.05) {
+        return res.status(404).json({ error: '剪贴板内容为二进制数据，非文本' });
+      }
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({ text: buf.toString('utf8') });
+    });
+  }
 });
 
 // POST 写入容器 X11 文本剪贴板。图片接口仍独立使用 image/png，避免格式互相误判。
@@ -135,17 +165,20 @@ app.post('/api/clipboard-image', upload.single('image'), async (req, res) => {
 
     console.log(`[clipboard] 临时文件已保存: ${tempPath}`);
 
-    // 使用 xclip 将图片写入容器剪贴板
-    // xclip -i 会 fork 守护进程持有 clipboard，阻塞到别人 paste 才退出；
-    // 这里必须 detach 后立刻返回响应，让前端再 send Ctrl+V 触发 paste，否则会死锁。
-    try {
-      const child = spawn('xclip',
-        ['-selection', 'clipboard', '-target', 'image/png', '-i', tempPath],
-        { detached: true, stdio: 'ignore' });
-      child.unref();
-      console.log(`[clipboard] xclip 后台启动 pid=${child.pid}`);
+    // 同时保存到固定路径，方便终端应用（如 Claude Code）直接用文件路径引用图片
+    const fixedPath = '/tmp/clipboard-image.png';
+    await fs.writeFile(fixedPath, req.file.buffer);
 
-      // 延迟 5 秒清理临时文件，确保 xclip 已读入数据
+    // 用 clipboard-holder.py 同时持有 image/png 和 UTF8_STRING（文件路径）
+    // 终端 Ctrl+V 得到路径，GIMP 等 GUI 应用 Ctrl+V 得到图片
+    try {
+      const holder = spawn('python3',
+        ['/opt/clipboard-holder.py', fixedPath],
+        { detached: true, stdio: 'ignore', env: { ...process.env, DISPLAY: process.env.DISPLAY || ':1' } });
+      holder.unref();
+      console.log(`[clipboard] clipboard-holder 后台启动 pid=${holder.pid}`);
+
+      // 5 秒后清理临时文件（holder 直接读 fixedPath，不需要 tempPath 持续存在）
       setTimeout(() => {
         fs.unlink(tempPath).catch(err => {
           if (err.code !== 'ENOENT') {
@@ -154,16 +187,17 @@ app.post('/api/clipboard-image', upload.single('image'), async (req, res) => {
         });
       }, 5000);
     } catch (error) {
-      console.error('[clipboard] xclip 启动失败:', error);
+      console.error('[clipboard] clipboard-holder 启动失败:', error);
       throw new Error('写入剪贴板失败');
     }
 
     const elapsed = Date.now() - startTime;
-    console.log(`[clipboard] 处理完成，耗时: ${elapsed}ms`);
+    console.log(`[clipboard] 处理完成，文件路径: ${fixedPath}，耗时: ${elapsed}ms`);
 
     res.json({
       success: true,
       message: '图片已同步到剪贴板',
+      filePath: fixedPath,
       size: req.file.size,
       elapsed: elapsed
     });
