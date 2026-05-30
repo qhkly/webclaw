@@ -371,9 +371,6 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/install-hermes.sh /opt/install-hermes.sh \
     && cp /tmp/_scripts/uninstall-hermes.sh /opt/uninstall-hermes.sh \
     && cp /tmp/_scripts/hermes-install-wrapper.sh /opt/hermes-install-wrapper.sh \
-    && cp /tmp/_scripts/install-webclaw-upgrader.sh /opt/install-webclaw-upgrader.sh \
-    && cp /tmp/_scripts/uninstall-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
-    && cp /tmp/_scripts/webclaw-upgrader-install-wrapper.sh /opt/webclaw-upgrader-install-wrapper.sh \
     && cp /tmp/_scripts/install-webcode-ai-studio.sh /opt/install-webcode-ai-studio.sh \
     && cp /tmp/_scripts/uninstall-webcode-ai-studio.sh /opt/uninstall-webcode-ai-studio.sh \
     && cp /tmp/_scripts/install-webcode-git-manager.sh /opt/install-webcode-git-manager.sh \
@@ -426,8 +423,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/start-dashboard.sh /opt/start-webtty.sh /opt/start-openclaw.sh /opt/start-ssh.sh \
         /usr/local/bin/openclaw-browser /usr/local/bin/code-server-browser \
         /opt/install-hermes.sh /opt/uninstall-hermes.sh /usr/local/bin/hermes-launcher \
-        /opt/install-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
-        /opt/webclaw-upgrader-install-wrapper.sh /opt/install-webcode-ai-studio.sh \
+        /opt/install-webcode-ai-studio.sh \
         /opt/uninstall-webcode-ai-studio.sh \
         /opt/install-webcode-git-manager.sh \
         /opt/uninstall-webcode-git-manager.sh \
@@ -454,8 +450,6 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && chown root:root /opt/install-hermes.sh /opt/uninstall-hermes.sh \
         /opt/hermes-install-wrapper.sh \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
-        /opt/install-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
-        /opt/webclaw-upgrader-install-wrapper.sh \
         /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
         /opt/install-discord.sh /opt/uninstall-discord.sh \
@@ -463,8 +457,6 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && chmod 755 /opt/install-hermes.sh /opt/uninstall-hermes.sh \
         /opt/hermes-install-wrapper.sh \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
-        /opt/install-webclaw-upgrader.sh /opt/uninstall-webclaw-upgrader.sh \
-        /opt/webclaw-upgrader-install-wrapper.sh \
         /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
         /opt/install-discord.sh /opt/uninstall-discord.sh \

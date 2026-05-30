@@ -35,9 +35,6 @@ ubuntu ALL=(root) NOPASSWD: /usr/local/bin/install-antigravity
 ubuntu ALL=(root) NOPASSWD: /opt/hermes-install-wrapper.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-hermes.sh
 ubuntu ALL=(root) NOPASSWD: /opt/uninstall-hermes.sh
-ubuntu ALL=(root) NOPASSWD: /opt/webclaw-upgrader-install-wrapper.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-webclaw-upgrader.sh
-ubuntu ALL=(root) NOPASSWD: /opt/uninstall-webclaw-upgrader.sh
 ubuntu ALL=(root) NOPASSWD: /usr/bin/gpg --dearmor -o /etc/apt/keyrings/*
 ubuntu ALL=(root) NOPASSWD: /bin/tee /etc/apt/sources.list.d/*
 ubuntu ALL=(root) NOPASSWD: /bin/chmod +x /etc/apt/keyrings/*
@@ -69,7 +66,6 @@ ubuntu ALL=(root) NOPASSWD: /bin/mv -f /tmp/*.desktop /usr/share/applications/
 # Hermes Agent 专用：Python 包、Git、Supervisor（为 custom_script 安装方法提供支持）
 ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -y python3-venv python3-pip git curl software-properties-common python3.11 python3.11-venv
 ubuntu ALL=(root) NOPASSWD: /usr/bin/git
-ubuntu ALL=(root) NOPASSWD: /bin/chown
 ubuntu ALL=(root) NOPASSWD: /usr/bin/supervisorctl *
 
 # QQ 安装专用权限
@@ -119,8 +115,6 @@ ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-trae.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-trae.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webclaw-launcher.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webclaw-launcher.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webclaw-upgrader.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webclaw-upgrader.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webcode-ai-studio.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webcode-ai-studio.sh
 ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-hermes.sh
