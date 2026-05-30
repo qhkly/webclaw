@@ -11,12 +11,16 @@ const express = require('express');
 const multer = require('multer');
 const { spawn } = require('child_process');
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
 
 const app = express();
 const PORT = 10009;
 
 app.use(express.json({ limit: '2mb' }));
+
+// 追踪当前 clipboard-holder 进程 PID，下次启动前主动 kill 旧进程
+let holderPid = null;
 
 // 配置 multer 处理文件上传
 const upload = multer({
@@ -172,10 +176,30 @@ app.post('/api/clipboard-image', upload.single('image'), async (req, res) => {
     // 用 clipboard-holder.py 同时持有 image/png 和 UTF8_STRING（文件路径）
     // 终端 Ctrl+V 得到路径，GIMP 等 GUI 应用 Ctrl+V 得到图片
     try {
-      const holder = spawn('python3',
-        ['/opt/clipboard-holder.py', fixedPath],
-        { detached: true, stdio: 'ignore', env: { ...process.env, DISPLAY: process.env.DISPLAY || ':1' } });
+      // 主动 kill 旧进程，不依赖 X11 置换机制
+      if (holderPid !== null) {
+        try { process.kill(holderPid, 'SIGTERM'); } catch (_) {}
+        holderPid = null;
+      }
+
+      const logFd = fsSync.openSync('/tmp/clipboard-holder.log', 'a');
+      let holder;
+      try {
+        holder = spawn('python3',
+          ['/opt/clipboard-holder.py', fixedPath],
+          { detached: true, stdio: ['ignore', logFd, logFd], env: { ...process.env, DISPLAY: process.env.DISPLAY || ':1' } });
+      } finally {
+        fsSync.closeSync(logFd);
+      }
       holder.unref();
+      holderPid = holder.pid;
+      holder.on('exit', () => {
+        if (holderPid === holder.pid) holderPid = null;
+      });
+      holder.on('error', (error) => {
+        console.error('[clipboard] clipboard-holder 运行失败:', error);
+        if (holderPid === holder.pid) holderPid = null;
+      });
       console.log(`[clipboard] clipboard-holder 后台启动 pid=${holder.pid}`);
 
       // 5 秒后清理临时文件（holder 直接读 fixedPath，不需要 tempPath 持续存在）
