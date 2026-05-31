@@ -541,7 +541,7 @@ RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
         && cp /tmp/_configs/clipboard-server.js /opt/clipboard-server.js \
         && cp /tmp/_configs/custom-clipboard-image.js /opt/noVNC/custom-clipboard-image.js \
         && chmod +x /opt/clipboard-server.js \
-        && sed -i 's|</body>|<script type="module">import UI from "./app/ui.js";window.UI=UI;</script><script src="custom-clipboard-image.js"></script></body>|' /opt/noVNC/vnc.html \
+        && sed -i 's|</body>|<script type="module">import UI from "./app/ui.js";window.UI=UI;</script><script src="custom-clipboard-image.js?v=20260531b"></script></body>|' /opt/noVNC/vnc.html \
         && cp /opt/desktop-shortcuts/hermes-uninstall.desktop /usr/share/applications/ \
         && cp /tmp/_configs/desktop-shortcuts/launchpad.desktop /usr/share/applications/launchpad.desktop \
         && (update-desktop-database /usr/share/applications 2>/dev/null || true); \

@@ -20,13 +20,14 @@
   const I18N = {
     'zh': {
       btn_mac_to_container: '粘贴',
-      btn_mac_to_container_title: '自动检测图片或文字，一键粘贴到容器当前焦点',
+      btn_mac_to_container_title: '把已同步的剪贴板内容粘贴到容器当前焦点',
       btn_container_to_mac: '拷贝',
       btn_container_to_mac_title: '自动检测图片或文字，一键拷贝到本地剪贴板',
       read_mac_failed: '✗ 读取本地剪贴板失败：',
       no_image_in_mac: '本地剪贴板没有图片',
       image_too_large: '图片过大（>10MB）',
       syncing_to_container: '正在同步图片到容器...',
+      pasting_synced_clipboard: '正在粘贴...',
       pasted_to_container: '✓ 已粘到容器',
       sync_failed: '✗ 同步失败：',
       reading_from_container: '正在从容器读取图片...',
@@ -42,13 +43,14 @@
     },
     'en': {
       btn_mac_to_container: 'Paste',
-      btn_mac_to_container_title: 'Auto-detect image or text, paste to container focus in one click',
+      btn_mac_to_container_title: 'Paste synced clipboard content to the container focus',
       btn_container_to_mac: 'Copy',
       btn_container_to_mac_title: 'Auto-detect image or text, copy to local clipboard in one click',
       read_mac_failed: '✗ Failed to read local clipboard: ',
       no_image_in_mac: 'No image in local clipboard',
       image_too_large: 'Image too large (>10MB)',
       syncing_to_container: 'Syncing image to container...',
+      pasting_synced_clipboard: 'Pasting...',
       pasted_to_container: '✓ Pasted to container',
       sync_failed: '✗ Sync failed: ',
       reading_from_container: 'Reading image from container...',
@@ -67,6 +69,8 @@
   let lastTextSentToContainer = '';
   let lastTextCopiedToMac = '';
   let lastTextSeenFromContainer = '';
+  const params = new URLSearchParams(location.search);
+  const isTauriNoVnc = params.get('webclaw_tauri') === '1' || params.has('_ctx');
 
   const loading = document.getElementById('clipboard-loading') || createLoadingElement();
 
@@ -143,6 +147,22 @@
     rfb.sendKey(XK_Control_L, 'ControlLeft', false);
   }
 
+  function sendCtrlShiftVToContainer() {
+    const rfb = (window.UI && window.UI.rfb) || window.rfb;
+    if (!rfb || typeof rfb.sendKey !== 'function') {
+      throw new Error('noVNC RFB 实例不可用');
+    }
+    const XK_Control_L = 0xffe3;
+    const XK_Shift_L = 0xffe1;
+    const XK_V = 0x0076;
+    rfb.sendKey(XK_Control_L, 'ControlLeft', true);
+    rfb.sendKey(XK_Shift_L, 'ShiftLeft', true);
+    rfb.sendKey(XK_V, 'KeyV', true);
+    rfb.sendKey(XK_V, 'KeyV', false);
+    rfb.sendKey(XK_Shift_L, 'ShiftLeft', false);
+    rfb.sendKey(XK_Control_L, 'ControlLeft', false);
+  }
+
   function getRfb() {
     return (window.UI && window.UI.rfb) || window.rfb || null;
   }
@@ -160,8 +180,26 @@
     }
   }
 
+  function isClipboardImagePath(text) {
+    return /^\/tmp\/clipboard-images\/clipboard-[A-Za-z0-9-]+\.png$/.test((text || '').trim());
+  }
+
+  function clearClipboardImagePathFromPanel() {
+    const textarea = document.getElementById('noVNC_clipboard_text');
+    if (textarea && isClipboardImagePath(textarea.value)) {
+      textarea.value = '';
+    }
+  }
+
+  function scheduleClearClipboardImagePathFromPanel() {
+    clearClipboardImagePathFromPanel();
+    setTimeout(clearClipboardImagePathFromPanel, 0);
+    setTimeout(clearClipboardImagePathFromPanel, 100);
+    setTimeout(clearClipboardImagePathFromPanel, 300);
+  }
+
   async function writeTextToMacClipboard(text) {
-    if (!text || !navigator.clipboard || !navigator.clipboard.writeText) {
+    if (!text || isClipboardImagePath(text) || !navigator.clipboard || !navigator.clipboard.writeText) {
       return false;
     }
     try {
@@ -251,6 +289,10 @@
   async function handleRfbClipboard(e) {
     const text = e && e.detail && typeof e.detail.text === 'string' ? e.detail.text : '';
     if (!text || looksLikeBinaryData(text)) return;
+    if (isClipboardImagePath(text)) {
+      scheduleClearClipboardImagePathFromPanel();
+      return;
+    }
     if (text !== lastTextSentToContainer && text !== lastTextCopiedToMac && text !== lastTextSeenFromContainer) {
       lastTextSeenFromContainer = text;
       await syncTextFromContainerToMac(text);
@@ -258,6 +300,10 @@
   }
 
   async function syncTextFromContainerToMac(text) {
+    if (isClipboardImagePath(text)) {
+      scheduleClearClipboardImagePathFromPanel();
+      return;
+    }
     setNoVncClipboardText(text);
     const ok = await writeTextToMacClipboard(text);
     if (!ok) {
@@ -304,6 +350,10 @@
       if (!resp.ok) throw new Error('GET ' + resp.status);
       const data = await resp.json();
       const text = typeof data.text === 'string' ? data.text : '';
+      if (isClipboardImagePath(text)) {
+        scheduleClearClipboardImagePathFromPanel();
+        return;
+      }
       if (!text || text === lastTextSeenFromContainer || text === lastTextSentToContainer || text === lastTextCopiedToMac) {
         return;
       }
@@ -320,6 +370,8 @@
     }
     document.__webclawTextClipboardPasteBridge = true;
     document.addEventListener('paste', handleBrowserPaste, true);
+    document.addEventListener('input', clearClipboardImagePathFromPanel, true);
+    setInterval(clearClipboardImagePathFromPanel, 500);
 
     // 监听 Ctrl+V / Ctrl+Shift+V，都从 Mac 剪贴板同步到容器
     let lastCtrlVTime = 0;
@@ -347,6 +399,17 @@
         e.stopPropagation();
 
         try {
+          if (isTauriNoVnc) {
+            setTimeout(() => {
+              if (e.shiftKey) {
+                sendCtrlShiftVToContainer();
+              } else {
+                sendCtrlVToContainer();
+              }
+            }, 650);
+            return;
+          }
+
           const text = await navigator.clipboard.readText();
           if (text && text.trim()) {
             const keyName = e.shiftKey ? 'Ctrl+Shift+V' : 'Ctrl+V';
@@ -365,21 +428,8 @@
             // 等待 xclip 完成，然后手动发送对应的按键到容器
             setTimeout(() => {
               if (e.shiftKey) {
-                // 发送 Ctrl+Shift+V
-                const rfb = getRfb();
-                if (rfb && typeof rfb.sendKey === 'function') {
-                  const XK_Control_L = 0xffe3;
-                  const XK_Shift_L = 0xffe1;
-                  const XK_V = 0x0076;
-                  rfb.sendKey(XK_Control_L, 'ControlLeft', true);
-                  rfb.sendKey(XK_Shift_L, 'ShiftLeft', true);
-                  rfb.sendKey(XK_V, 'KeyV', true);
-                  rfb.sendKey(XK_V, 'KeyV', false);
-                  rfb.sendKey(XK_Shift_L, 'ShiftLeft', false);
-                  rfb.sendKey(XK_Control_L, 'ControlLeft', false);
-                }
+                sendCtrlShiftVToContainer();
               } else {
-                // 发送 Ctrl+V
                 sendCtrlVToContainer();
               }
             }, 100);
@@ -474,6 +524,26 @@
     hideLoading();
   }
 
+  async function handleSyncedClipboardPaste({ shift = false } = {}) {
+    try {
+      showLoading(T.pasting_synced_clipboard);
+      // 桌面端已有原生剪贴板同步循环，避免调用 navigator.clipboard.read()
+      // 触发浏览器/WebView 的英文 Paste 安全浮层。
+      await new Promise(resolve => setTimeout(resolve, 650));
+      if (shift) {
+        sendCtrlShiftVToContainer();
+      } else {
+        sendCtrlVToContainer();
+      }
+      showLoading(T.pasted_to_container, 'success');
+      hideLoading();
+    } catch (err) {
+      console.warn('[clipboard] Synced clipboard paste failed:', err && err.message);
+      showLoading(T.sync_failed + (err.message || ''), 'error');
+      hideLoading();
+    }
+  }
+
   // 按钮 B：容器 → 本地
   async function handleContainerToMac() {
     // 1. 优先：检查容器剪贴板是否有图片
@@ -498,6 +568,10 @@
       if (textResp.ok) {
         const data = await textResp.json();
         const text = data.text;
+        if (isClipboardImagePath(text)) {
+          scheduleClearClipboardImagePathFromPanel();
+          return;
+        }
         if (text && text.trim()) {
           await navigator.clipboard.writeText(text);
           showLoading(T.text_copied_to_mac, 'success');
@@ -512,6 +586,12 @@
     // 3. fallback：容器剪贴板为空，检查输入框是否有文字
     const textarea = document.getElementById('noVNC_clipboard_text');
     if (textarea && textarea.value && textarea.value.trim()) {
+      if (isClipboardImagePath(textarea.value)) {
+        scheduleClearClipboardImagePathFromPanel();
+        showLoading(T.no_content_container, 'error');
+        hideLoading();
+        return;
+      }
       try {
         await navigator.clipboard.writeText(textarea.value);
         showLoading(T.text_copied_to_mac, 'success');
@@ -610,7 +690,7 @@
     const pasteBtn = makeButton(
       T.btn_mac_to_container,
       T.btn_mac_to_container_title,
-      handleMacToContainer
+      isTauriNoVnc ? handleSyncedClipboardPaste : handleMacToContainer
     );
     wrap.appendChild(pasteBtn);
 

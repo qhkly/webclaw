@@ -45,6 +45,7 @@ def main():
     TEXT_PLAIN_UTF8 = d.intern_atom('text/plain;charset=utf-8')
     TEXT            = d.intern_atom('TEXT')
     STRING          = Xatom.STRING
+    INCR            = d.intern_atom('INCR')
 
     SUPPORTED_TARGETS = [TARGETS, IMAGE_PNG, UTF8_STRING, TEXT_PLAIN,
                          TEXT_PLAIN_UTF8, TEXT, STRING]
@@ -70,7 +71,9 @@ def main():
             requestor.change_property(prop, Xatom.ATOM, 32,
                                       [t for t in SUPPORTED_TARGETS])
         elif target == IMAGE_PNG:
-            # 直接发送全量数据，X11 属性支持大值，无需 INCR 分块
+            if len(img_data) > 60 * 1024:
+                send_incr(ev, prop, IMAGE_PNG, img_data)
+                return
             requestor.change_property(prop, IMAGE_PNG, 8, img_data)
         elif target in (UTF8_STRING, TEXT_PLAIN, TEXT_PLAIN_UTF8):
             requestor.change_property(prop, UTF8_STRING, 8, path_bytes)
@@ -87,6 +90,44 @@ def main():
             property=prop,
         )
         ev.requestor.send_event(resp)
+        d.flush()
+
+    def send_selection_notify(ev, prop):
+        resp = xevent.SelectionNotify(
+            time=ev.time,
+            requestor=ev.requestor,
+            selection=ev.selection,
+            target=ev.target,
+            property=prop,
+        )
+        ev.requestor.send_event(resp)
+        d.flush()
+
+    def wait_property_delete(requestor, prop):
+        while True:
+            ev = d.next_event()
+            if (ev.type == X.PropertyNotify and
+                    ev.window == requestor and
+                    ev.atom == prop and
+                    ev.state == X.PropertyDelete):
+                return
+            if ev.type == X.SelectionClear and ev.atom == CLIPBOARD:
+                raise RuntimeError('lost CLIPBOARD ownership during INCR transfer')
+
+    def send_incr(ev, prop, target_atom, data):
+        requestor = ev.requestor
+        requestor.change_attributes(event_mask=X.PropertyChangeMask)
+        requestor.change_property(prop, INCR, 32, [len(data)])
+        send_selection_notify(ev, prop)
+        wait_property_delete(requestor, prop)
+
+        chunk_size = 32 * 1024
+        for offset in range(0, len(data), chunk_size):
+            requestor.change_property(prop, target_atom, 8, data[offset:offset + chunk_size])
+            d.flush()
+            wait_property_delete(requestor, prop)
+
+        requestor.change_property(prop, target_atom, 8, b'')
         d.flush()
 
     def on_signal(*_):

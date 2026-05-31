@@ -22,6 +22,33 @@ app.use(express.json({ limit: '2mb' }));
 // 追踪当前 clipboard-holder 进程 PID，下次启动前主动 kill 旧进程
 let holderPid = null;
 
+function launchClipboardHolder(imagePath) {
+  if (holderPid !== null) {
+    try { process.kill(holderPid, 'SIGTERM'); } catch (_) {}
+    holderPid = null;
+  }
+
+  const logFd = fsSync.openSync('/tmp/clipboard-holder.log', 'a');
+  let holder;
+  try {
+    holder = spawn('python3',
+      ['/opt/clipboard-holder.py', imagePath],
+      { detached: true, stdio: ['ignore', logFd, logFd], env: { ...process.env, DISPLAY: process.env.DISPLAY || ':1' } });
+  } finally {
+    fsSync.closeSync(logFd);
+  }
+  holder.unref();
+  holderPid = holder.pid;
+  holder.on('exit', () => {
+    if (holderPid === holder.pid) holderPid = null;
+  });
+  holder.on('error', (error) => {
+    console.error('[clipboard] clipboard-holder 运行失败:', error);
+    if (holderPid === holder.pid) holderPid = null;
+  });
+  console.log(`[clipboard] clipboard-holder 后台启动 pid=${holder.pid}`);
+}
+
 // 配置 multer 处理文件上传
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -109,6 +136,11 @@ app.post('/api/clipboard-text', async (req, res) => {
   const tempPath = path.join('/tmp', tempFileName);
 
   try {
+    if (/^\/tmp\/clipboard-images\/clipboard-[A-Za-z0-9-]+\.png$/.test(text) && fsSync.existsSync(text)) {
+      launchClipboardHolder(text);
+      return res.json({ success: true, message: '图片路径已同步到剪贴板', size: Buffer.byteLength(text, 'utf8') });
+    }
+
     await fs.writeFile(tempPath, text, 'utf8');
     const child = spawn('xclip',
       ['-selection', 'clipboard', '-target', 'UTF8_STRING', '-i', tempPath],
@@ -160,68 +192,32 @@ app.post('/api/clipboard-image', upload.single('image'), async (req, res) => {
 
     console.log(`[clipboard] 收到图片: ${req.file.mimetype}, ${(req.file.size / 1024).toFixed(2)} KB`);
 
-    // 生成临时文件路径
-    const tempFileName = `pasted-image-${Date.now()}.png`;
-    const tempPath = path.join('/tmp', tempFileName);
+    const now = Date.now();
+    const suffix = Math.random().toString(36).slice(2, 8);
 
-    // 写入临时文件
-    await fs.writeFile(tempPath, req.file.buffer);
-
-    console.log(`[clipboard] 临时文件已保存: ${tempPath}`);
-
-    // 同时保存到固定路径，方便终端应用（如 Claude Code）直接用文件路径引用图片
-    const fixedPath = '/tmp/clipboard-image.png';
-    await fs.writeFile(fixedPath, req.file.buffer);
+    // 每次图片保存为唯一文件，方便 Claude Code 连续引用多张图，避免被下一张覆盖。
+    const imageDir = '/tmp/clipboard-images';
+    await fs.mkdir(imageDir, { recursive: true });
+    const clipboardFilePath = path.join(imageDir, `clipboard-${now}-${suffix}.png`);
+    await fs.writeFile(clipboardFilePath, req.file.buffer);
+    console.log(`[clipboard] 图片文件已保存: ${clipboardFilePath}`);
 
     // 用 clipboard-holder.py 同时持有 image/png 和 UTF8_STRING（文件路径）
     // 终端 Ctrl+V 得到路径，GIMP 等 GUI 应用 Ctrl+V 得到图片
     try {
-      // 主动 kill 旧进程，不依赖 X11 置换机制
-      if (holderPid !== null) {
-        try { process.kill(holderPid, 'SIGTERM'); } catch (_) {}
-        holderPid = null;
-      }
-
-      const logFd = fsSync.openSync('/tmp/clipboard-holder.log', 'a');
-      let holder;
-      try {
-        holder = spawn('python3',
-          ['/opt/clipboard-holder.py', fixedPath],
-          { detached: true, stdio: ['ignore', logFd, logFd], env: { ...process.env, DISPLAY: process.env.DISPLAY || ':1' } });
-      } finally {
-        fsSync.closeSync(logFd);
-      }
-      holder.unref();
-      holderPid = holder.pid;
-      holder.on('exit', () => {
-        if (holderPid === holder.pid) holderPid = null;
-      });
-      holder.on('error', (error) => {
-        console.error('[clipboard] clipboard-holder 运行失败:', error);
-        if (holderPid === holder.pid) holderPid = null;
-      });
-      console.log(`[clipboard] clipboard-holder 后台启动 pid=${holder.pid}`);
-
-      // 5 秒后清理临时文件（holder 直接读 fixedPath，不需要 tempPath 持续存在）
-      setTimeout(() => {
-        fs.unlink(tempPath).catch(err => {
-          if (err.code !== 'ENOENT') {
-            console.warn(`[clipboard] 清理临时文件失败: ${err.message}`);
-          }
-        });
-      }, 5000);
+      launchClipboardHolder(clipboardFilePath);
     } catch (error) {
       console.error('[clipboard] clipboard-holder 启动失败:', error);
       throw new Error('写入剪贴板失败');
     }
 
     const elapsed = Date.now() - startTime;
-    console.log(`[clipboard] 处理完成，文件路径: ${fixedPath}，耗时: ${elapsed}ms`);
+    console.log(`[clipboard] 处理完成，文件路径: ${clipboardFilePath}，耗时: ${elapsed}ms`);
 
     res.json({
       success: true,
       message: '图片已同步到剪贴板',
-      filePath: fixedPath,
+      filePath: clipboardFilePath,
       size: req.file.size,
       elapsed: elapsed
     });
