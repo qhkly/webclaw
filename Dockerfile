@@ -463,10 +463,11 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/install-discord.sh /opt/uninstall-discord.sh \
         /opt/install-webclaw-software-manager.sh /opt/uninstall-webclaw-software-manager.sh \
     && mkdir -p /opt/install-scripts \
-    && (curl -fsSL "https://github.com/qhkly/webclaw-software-manager/archive/refs/heads/main.tar.gz" \
-        | tar -xz --strip-components=2 -C /opt/install-scripts/ "webclaw-software-manager-main/scripts/" 2>/dev/null \
-        || true) \
-    && chmod +x /opt/install-scripts/*.sh 2>/dev/null || true \
+    && echo "下载 install-scripts..." \
+    && curl -fsSL "https://github.com/qhkly/webclaw-software-manager/archive/refs/heads/main.tar.gz" \
+        | tar -xz --strip-components=2 -C /opt/install-scripts/ "webclaw-software-manager-main/scripts/" \
+    && echo "install-scripts 下载完成" \
+    && chmod +x /opt/install-scripts/*.sh 2>/dev/null || echo "警告: 部分脚本没有执行权限" \
     && chown -R root:root /opt/install-scripts \
     && (curl -fsSL "https://raw.githubusercontent.com/qhkly/webclaw-software-manager/main/preinstall-apps.json" \
         -o /opt/preinstall-apps.json 2>/dev/null || true) \
