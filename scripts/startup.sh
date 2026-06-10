@@ -456,8 +456,15 @@ FCITX_PROFILE_EOF
             ! -name 'terminal.desktop' \
             ! -name 'claude-code.desktop' \
             -exec mv -f {} /home/ubuntu/.local/share/desktop-icons/hidden/ \; 2>/dev/null || true
-        for shortcut in v2rayN openclaw claude-code codex-cli webcode-ai-studio webcode-git-manager webclaw-software-manager; do
+        # Core shortcuts are part of every image, so they are always shown on first run.
+        for shortcut in openclaw claude-code v2rayN codex-cli webclaw-software-manager; do
             cp "/opt/desktop-shortcuts/${shortcut}.desktop" /home/ubuntu/Desktop/ 2>/dev/null || true
+        done
+        # On-demand app shortcuts are only shown when their configured binary is installed.
+        for app_id in webcode-ai-studio webcode-git-manager; do
+            bin=$(jq -r '.binary // empty' "/opt/on-demand-apps/${app_id}.json" 2>/dev/null || true)
+            [ -n "$bin" ] && [ -x "$bin" ] || continue
+            cp "/opt/desktop-shortcuts/${app_id}.desktop" /home/ubuntu/Desktop/ 2>/dev/null || true
         done
         touch "$DESKTOP_DEFAULTS_MARKER"
     fi
