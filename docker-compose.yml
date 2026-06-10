@@ -19,6 +19,9 @@ services:
       - v2rayn-data:/home/ubuntu/.local/share/v2rayN
       - recordings:/home/ubuntu/recordings
       - webclaw-config:/home/ubuntu/.webclaw  # 持久化运行时配置
+      # 个人技能目录：默认命名卷（远程 git 同步模式用）；
+      # 本地同机部署时在 .env 设 SKILLS_HOST_DIR=$HOME/.webcode/skills 即变为 bind-mount，实时双向同步
+      - ${SKILLS_HOST_DIR:-skills-data}:/home/ubuntu/skills
       - ssh-data:/home/ubuntu/.ssh           # SSH密钥和配置持久化
       - ./backups:/home/ubuntu/backups       # 备份目录（映射到宿主机）
     tmpfs:
@@ -39,6 +42,11 @@ services:
       - ENABLE_OPENCLAW=${ENABLE_OPENCLAW:-true}
       - ENABLE_CLAUDECODEUI=${ENABLE_CLAUDECODEUI:-false}
       - HOST_API_TOKEN=${HOST_API_TOKEN:-webclaw-host-token-change-me}
+      # 个人技能云同步（远程部署）：在 .env 填入技能仓库地址与访问令牌后自动双向同步
+      - SKILLS_REPO_URL=${SKILLS_REPO_URL:-}
+      - SKILLS_REPO_TOKEN=${SKILLS_REPO_TOKEN:-}
+      - SKILLS_BRANCH=${SKILLS_BRANCH:-main}
+      - SKILLS_SYNC_INTERVAL=${SKILLS_SYNC_INTERVAL:-300}
       - CLEAN_DESKTOP=${CLEAN_DESKTOP:-true}
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -48,6 +56,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  skills-data:
   dna-data:
   projects:
   obsidian-data:

@@ -39,6 +39,18 @@ if [ -f /opt/init-skills.sh ]; then
     /opt/init-skills.sh
 fi
 
+# ─── 个人技能云同步循环（设置 SKILLS_REPO_URL 时启用） ────────────────
+# 以 ubuntu 身份后台轮询同步 /home/ubuntu/skills 与云端技能仓库
+if [ -n "${SKILLS_REPO_URL:-}" ] && [ -f /opt/skills-sync-loop.sh ]; then
+    echo "[startup] Starting skills cloud sync loop..."
+    sudo -u ubuntu env \
+        SKILLS_REPO_URL="$SKILLS_REPO_URL" \
+        SKILLS_REPO_TOKEN="${SKILLS_REPO_TOKEN:-}" \
+        SKILLS_BRANCH="${SKILLS_BRANCH:-main}" \
+        SKILLS_SYNC_INTERVAL="${SKILLS_SYNC_INTERVAL:-300}" \
+        /opt/skills-sync-loop.sh >> /var/log/skills-sync.log 2>&1 &
+fi
+
 # 后台递归修复 /home/ubuntu 权限，避免大目录阻塞启动。
 # 保留用户本地目录挂载点的原始 owner，避免把宿主机目录重置成 ubuntu。
 # 容器侧不知道当前是 macOS 还是 Linux/Windows 主机连过来，

@@ -402,6 +402,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp -r /tmp/_scripts/on-demand-helpers/ /usr/local/bin/on-demand-helpers/ \
     && cp /tmp/_scripts/startup.sh /opt/startup.sh \
     && cp /tmp/_scripts/init-skills.sh /opt/init-skills.sh \
+    && cp /tmp/_scripts/skills-sync-loop.sh /opt/skills-sync-loop.sh \
     && cp /tmp/_scripts/run-cloudflared.sh /usr/local/bin/run-cloudflared.sh \
     && cp /tmp/_scripts/vnc-setpass.py /opt/vnc-setpass.py \
     && mkdir -p /scripts \
@@ -441,7 +442,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
         /opt/install-discord.sh /opt/uninstall-discord.sh \
-        /opt/startup.sh /opt/init-skills.sh /usr/local/bin/run-cloudflared.sh \
+        /opt/startup.sh /opt/init-skills.sh /opt/skills-sync-loop.sh /usr/local/bin/run-cloudflared.sh \
         /scripts/analytics.sh /usr/local/bin/dockerd-condition.sh \
         /opt/backup.sh /opt/restore.sh /opt/snapshot.sh /opt/snapshot-restore.sh /opt/snapshot-base.sh \
     && chmod 0440 /etc/sudoers.d/webclaw-app-launcher \
