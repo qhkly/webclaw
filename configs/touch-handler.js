@@ -16,6 +16,13 @@
  *   Single finger drag                    → cursor move
  *   Long-press then drag                  → left-button drag
  *   Two-finger vertical swipe             → scroll wheel
+ *
+ * A physical mouse still works while trackpad mode is active: mouse/wheel events
+ * are forwarded through the capture overlay to noVNC's canvas.
+ *
+ * URL parameters:
+ *   ?touch=1  force-enable trackpad mode (e.g. touchscreen laptops)
+ *   ?touch=0  force-disable (overlay not installed; native mouse + touch only)
  */
 (function () {
   'use strict';
@@ -25,10 +32,21 @@
   console.log('[touch-handler] maxTouchPoints:', navigator.maxTouchPoints);
   console.log('[touch-handler] userAgent:', navigator.userAgent);
 
-  // Only activate on touch-capable devices
-  // Also activate if URL parameter ?touch=1 is present for debugging
-  var forceTouch = location.search.match(/touch=1/);
+  // URL parameter control:
+  //   ?touch=1 → force-enable trackpad mode (debugging / touchscreen laptops)
+  //   ?touch=0 → force-disable; the overlay is never installed, so noVNC keeps
+  //              its native mouse + touch handling (use on touchscreen PCs that
+  //              only want a plain mouse)
+  // Otherwise auto-activate on any touch-capable device. Because the overlay now
+  // forwards mouse events to the canvas (see init()), enabling trackpad mode on a
+  // hybrid touch+mouse computer no longer breaks the mouse — both work together.
+  var forceTouch = /(?:^|[?&])touch=1(?:&|$)/.test(location.search);
+  var disableTouch = /(?:^|[?&])touch=0(?:&|$)/.test(location.search);
   var hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  if (disableTouch) {
+    console.log('[touch-handler] touch=0 in URL, trackpad mode disabled');
+    return;
+  }
   if (!hasTouch && !forceTouch) {
     console.log('[touch-handler] No touch detected, skipping initialization');
     return;
@@ -140,6 +158,46 @@
       clientY:    p.y,
       deltaY:     deltaY,
       deltaMode:  0
+    }));
+  }
+
+  // ── Mouse pass-through ────────────────────────────────────
+  // The overlay sits on top of the canvas to capture touch, but it would
+  // otherwise swallow real mouse input (no mouse handlers → clicks/moves never
+  // reach noVNC). Forward genuine mouse/wheel events to the canvas at their real
+  // coordinates so noVNC handles them natively (absolute positioning).
+  function forwardMouse(e) {
+    e.stopPropagation();
+    // preventDefault stops the overlay from stealing/clearing the canvas's
+    // keyboard focus on mousedown — otherwise typing breaks after a click.
+    e.preventDefault();
+    // Hide the touch trackpad cursor while a physical mouse is in use
+    if (cursor) cursor.style.display = 'none';
+    canvas.dispatchEvent(new MouseEvent(e.type, {
+      bubbles:    true,
+      cancelable: true,
+      view:       window,
+      clientX:    e.clientX,
+      clientY:    e.clientY,
+      button:     e.button,
+      buttons:    e.buttons
+    }));
+    // Keep keyboard focus on the canvas so typing works after clicking
+    if (e.type === 'mousedown' && canvas.focus) canvas.focus();
+  }
+
+  function forwardWheel(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    canvas.dispatchEvent(new WheelEvent('wheel', {
+      bubbles:    true,
+      cancelable: true,
+      view:       window,
+      clientX:    e.clientX,
+      clientY:    e.clientY,
+      deltaX:     e.deltaX,
+      deltaY:     e.deltaY,
+      deltaMode:  e.deltaMode
     }));
   }
 
@@ -473,6 +531,13 @@
     overlay.addEventListener('touchmove',   onTouchMove,   {passive: false});
     overlay.addEventListener('touchend',    onTouchEnd,    {passive: false});
     overlay.addEventListener('touchcancel', onTouchCancel, {passive: false});
+
+    // Forward physical mouse input through the overlay to noVNC's canvas so the
+    // mouse keeps working on touchscreen computers (hybrid touch + mouse).
+    ['mousedown', 'mousemove', 'mouseup', 'click', 'dblclick', 'contextmenu'].forEach(function (type) {
+      overlay.addEventListener(type, forwardMouse);
+    });
+    overlay.addEventListener('wheel', forwardWheel, {passive: false});
 
     // Start dynamic import of UI module to enable edge scrolling
     console.log('[touch-handler] Starting UI module import...');
