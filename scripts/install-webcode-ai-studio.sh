@@ -82,7 +82,15 @@ install_main() {
 
     # 从 metadata 提取下载 URL（使用已有的 METADATA）
     # 优先使用对应架构，否则使用通用 linux 版本
-    DOWNLOAD_URL=$(echo "$METADATA" | python3 -c "import json, sys; data = json.load(sys.stdin); assets = data.get('assets', {}); print(assets.get('${R2_ARCH_KEY}', assets.get('linux', {})).get('url', ''))")
+    DOWNLOAD_URL=$(echo "$METADATA" | python3 -c "
+import json, sys
+raw = sys.stdin.read().strip()
+try:
+    data = json.loads(raw) if raw else {}
+except Exception:
+    data = {}
+assets = data.get('assets', {})
+print(assets.get('${R2_ARCH_KEY}', assets.get('linux', {})).get('url', ''))" 2>/dev/null || echo "")
 
     if [ -z "$DOWNLOAD_URL" ]; then
         echo "[ERROR] 无法找到 ${R2_ARCH_KEY} 的下载链接"
@@ -151,6 +159,13 @@ install_main() {
         rm -rf "$INSTALL_DIR"
         mv "${EXTRACT_DIR}/squashfs-root" "$INSTALL_DIR"
 
+        # 确保所有用户可读可执行（mktemp 创建的目录默认 700，mv 保留权限）
+        chmod -R a+rX "$INSTALL_DIR"
+        # a+rX 只在已有 x 位时才补 x；AppRun / AppRun.wrapped 是真正的入口，显式补
+        for entry in "$INSTALL_DIR/AppRun" "$INSTALL_DIR/AppRun.wrapped"; do
+            [ -f "$entry" ] && chmod 0755 "$entry"
+        done
+
         # 确定安装后的实际二进制路径
         BINARY_NAME=$(basename "$BINARY")
         ACTUAL_BINARY=$(find "$INSTALL_DIR" -maxdepth 4 -type f -name "$BINARY_NAME" ! -name "*.so" | head -n1)
@@ -167,6 +182,14 @@ cd "${INSTALL_DIR}"
 exec "${INSTALL_DIR}/AppRun" "\$@"
 WRAPPER_EOF
         chmod +x /usr/bin/webcode-ai-studio
+
+        # 安装后校验：AppRun 不可执行时应立刻失败，而不是留到用户点图标才报错
+        if [ ! -x "${INSTALL_DIR}/AppRun" ]; then
+            echo "[ERROR] 安装后 ${INSTALL_DIR}/AppRun 不存在或不可执行"
+            ls -la "${INSTALL_DIR}/" 2>/dev/null | head -20 || true
+            rm -rf "$TMP_DIR"
+            exit 1
+        fi
     else
         echo "[ERROR] 无法找到 deb 或 AppImage 文件"
         rm -rf "$TMP_DIR"

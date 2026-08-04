@@ -451,6 +451,27 @@ FCITX_PROFILE_EOF
     chmod +x /home/ubuntu/.xsession
     chown ubuntu:ubuntu /home/ubuntu/.xsession
 
+    # ─── 修复历史安装遗留的 AppDir 权限 ────────────────────────────────
+    # 早期 install-webcode-ai-studio.sh / install-webcode-git-manager.sh 漏了
+    # chmod -R a+rX，解压目录继承 mktemp -d 的 0700，ubuntu 用户进不去 /opt/<app>，
+    # 点桌面图标时 AppRun.wrapped 报 Permission denied。安装脚本已修，这里兜底
+    # 修复已经装坏的容器，让用户无需卸载重装。
+    for appdir in /opt/ai-cli-studio /opt/git-manager; do
+        [ -d "$appdir" ] || continue
+        # 权限已正常就跳过，避免每次启动都递归 chmod 整棵树。
+        # 注意不能用 [ -x ]：startup.sh 以 root 运行，root 对 0700 文件同样 -x 为真，
+        # 必须显式测 other 位。
+        if [ -n "$(find "$appdir" -maxdepth 0 -perm -o+x 2>/dev/null)" ] \
+           && [ -n "$(find "$appdir/AppRun" -maxdepth 0 -perm -o+x 2>/dev/null)" ]; then
+            continue
+        fi
+        echo "[startup] 修复 $appdir 权限（历史安装缺少 chmod -R a+rX）"
+        chmod -R a+rX "$appdir" 2>/dev/null || true
+        for entry in "$appdir/AppRun" "$appdir/AppRun.wrapped"; do
+            [ -f "$entry" ] && chmod 0755 "$entry"
+        done
+    done
+
     # Desktop shortcuts: keep only the baseline desktop clean on first run.
     # After this marker exists, users can freely add/remove desktop icons.
     # Use /run/ for runtime state (cleared on container restart, not persisted across hosts)

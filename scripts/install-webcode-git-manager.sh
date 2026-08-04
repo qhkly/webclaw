@@ -159,6 +159,13 @@ install_main() {
         rm -rf "$INSTALL_DIR"
         mv "${EXTRACT_DIR}/squashfs-root" "$INSTALL_DIR"
 
+        # 确保所有用户可读可执行（mktemp 创建的目录默认 700，mv 保留权限）
+        chmod -R a+rX "$INSTALL_DIR"
+        # a+rX 只在已有 x 位时才补 x；AppRun / AppRun.wrapped 是真正的入口，显式补
+        for entry in "$INSTALL_DIR/AppRun" "$INSTALL_DIR/AppRun.wrapped"; do
+            [ -f "$entry" ] && chmod 0755 "$entry"
+        done
+
         # 确定安装后的实际二进制路径
         BINARY_NAME=$(basename "$BINARY")
         ACTUAL_BINARY=$(find "$INSTALL_DIR" -maxdepth 4 -type f -name "$BINARY_NAME" ! -name "*.so" | head -n1)
@@ -176,6 +183,14 @@ cd "${INSTALL_DIR}"
 exec "${INSTALL_DIR}/AppRun" "\$@"
 WRAPPER_EOF
         chmod +x /usr/local/bin/git-manager
+
+        # 安装后校验：AppRun 不可执行时应立刻失败，而不是留到用户点图标才报错
+        if [ ! -x "${INSTALL_DIR}/AppRun" ]; then
+            echo "[ERROR] 安装后 ${INSTALL_DIR}/AppRun 不存在或不可执行"
+            ls -la "${INSTALL_DIR}/" 2>/dev/null | head -20 || true
+            rm -rf "$TMP_DIR"
+            exit 1
+        fi
     else
         echo "[ERROR] 无法找到 AppImage 或 deb 文件"
         rm -rf "$TMP_DIR"
