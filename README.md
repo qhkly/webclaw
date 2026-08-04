@@ -804,3 +804,14 @@ docker exec -it webcode supervisorctl restart theia
 docker exec -it -u ubuntu webcode openclaw onboard
 ```
 按提示完成配置后，刷新 http://localhost:20003 即可使用。
+
+---
+
+## 📖 进阶文档
+
+| 文档 | 内容 |
+|---|---|
+| [远程服务器运维](docs/远程服务器运维.md) | 把容器当运维基地，用 AI 管理远程 Linux 服务器：装软件、改配置、查日志、管 Docker |
+| [按需安装应用](docs/on-demand-apps.md) | 应用中心的工作方式与新增应用 |
+| [剪贴板桥接](docs/clipboard-bridge.md) | 容器与宿主机剪贴板同步 |
+| [代理隔离](docs/PROXY-ISOLATION.md) | 网络代理的隔离方案 |
