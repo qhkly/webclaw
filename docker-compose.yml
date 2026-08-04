@@ -5,6 +5,13 @@ services:
     container_name: webclaw
     ports:
       - "20000:20000"  # Dashboard (四合一入口，via Caddy)
+    # sshfs 挂载远程服务器目录需要 FUSE：容器要能访问 /dev/fuse 并具备 SYS_ADMIN
+    devices:
+      - /dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - dna-data:/home/ubuntu/dna          # DNA 目录：项目源码，空时自动 clone
@@ -23,6 +30,7 @@ services:
       # 本地同机部署时在 .env 设 SKILLS_HOST_DIR=$HOME/.webcode/skills 即变为 bind-mount，实时双向同步
       - ${SKILLS_HOST_DIR:-skills-data}:/home/ubuntu/skills
       - ssh-data:/home/ubuntu/.ssh           # SSH密钥和配置持久化
+      - servers-data:/home/ubuntu/servers    # 远程服务器运维工作目录（add-server 生成）
       - ./backups:/home/ubuntu/backups       # 备份目录（映射到宿主机）
     tmpfs:
       - /run:size=10M
@@ -70,3 +78,4 @@ volumes:
   recordings:
   webclaw-config:
   ssh-data:
+  servers-data:

@@ -391,6 +391,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/webclaw-desktop-panel-safe-refresh.sh /usr/local/bin/webclaw-desktop-panel-safe-refresh \
     && cp /tmp/_scripts/install-antigravity.sh /usr/local/bin/install-antigravity \
     && cp /tmp/_scripts/preinstall-on-demand.sh /usr/local/bin/preinstall-on-demand.sh \
+    && cp /tmp/_scripts/add-server.sh /usr/local/bin/add-server \
     && cp /tmp/_configs/install-qq.sh /opt/install-qq.sh \
     && cp /tmp/_configs/uninstall-qq.sh /opt/uninstall-qq.sh \
     && cp /tmp/_configs/qq-install-wrapper.sh /opt/qq-install-wrapper.sh \
@@ -436,7 +437,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /usr/local/bin/webclaw-app-launcher /usr/local/bin/webclaw-app-uninstaller \
         /usr/local/bin/webclaw-app-postinstall /usr/local/bin/webclaw-log-prepare \
         /usr/local/bin/update-desktop-icons /usr/local/bin/webclaw-desktop-panel-safe-refresh \
-        /usr/local/bin/install-antigravity \
+        /usr/local/bin/install-antigravity /usr/local/bin/add-server \
         /usr/local/bin/preinstall-on-demand.sh \
         /usr/local/bin/on-demand-helpers/*.sh \
         /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \

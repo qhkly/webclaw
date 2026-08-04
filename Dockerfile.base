@@ -132,6 +132,12 @@ RUN npm config set fetch-retries 5 && \
 # ─── 5c. Pre-install OpenClaw globally (易变，放最后避免破坏缓存) ─────
 RUN npm install -g openclaw@2026.5.7
 
+# ─── 5d. sshfs：远程服务器目录挂载到本地做运维 ─────────────────────────
+# 放在 npm 层之后,避免让上面的 AI CLI 安装层缓存失效。
+# 运行时需要容器有 /dev/fuse + SYS_ADMIN(见 docker-compose.yml)。
+RUN apt-get update && apt-get install -y --no-install-recommends sshfs \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # ─── Metadata ───────────────────────────────────────────────────────
 ARG WEBCODE_VERSION=dev
 ARG CODE_SERVER_VER=4.100.2
