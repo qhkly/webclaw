@@ -348,6 +348,15 @@ COPY configs/ /tmp/_configs/
 COPY scripts/ /tmp/_scripts/
 COPY skills/ /opt/skills/
 
+# 等宽字体别名：fontconfig 会把 ui-monospace / SF Mono / Menlo 这些 Linux 上
+# 不存在的家族名松散匹配到比例字体 Noto Sans CJK SC，导致 AI CLI Studio 的
+# xterm 终端按比例字体量格宽，字符全被摊开。显式指到真实的等宽字体。
+# 必须放 conf.d/57-*（早于 60-latin.conf），local.conf 读得太晚，对泛型名
+# monospace 的规则会失效。lite 镜像没装 fontconfig，缓存刷不了也不算错。
+RUN mkdir -p /etc/fonts/conf.d \
+    && cp /tmp/_configs/57-webclaw-mono.conf /etc/fonts/conf.d/57-webclaw-mono.conf \
+    && if command -v fc-cache >/dev/null 2>&1; then fc-cache -f; fi
+
 RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_configs/supervisord-lite.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_configs/supervisor-code-server.conf /etc/supervisor/conf.d/ \
