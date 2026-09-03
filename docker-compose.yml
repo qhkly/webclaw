@@ -30,7 +30,8 @@ services:
       # 本地同机部署时在 .env 设 SKILLS_HOST_DIR=$HOME/.webcode/skills 即变为 bind-mount，实时双向同步
       - ${SKILLS_HOST_DIR:-skills-data}:/home/ubuntu/skills
       - ssh-data:/home/ubuntu/.ssh           # SSH密钥和配置持久化
-      - servers-data:/home/ubuntu/servers    # 远程服务器运维工作目录（add-server 生成）
+      - servers-data:/home/ubuntu/servers    # 远程服务器运维工作目录（远程服务器面板生成）
+      - ai-studio-data:/home/ubuntu/.ai-studio  # 远程主机的 SSH 密钥与连接配置
       - ./backups:/home/ubuntu/backups       # 备份目录（映射到宿主机）
     tmpfs:
       - /run:size=10M
@@ -79,3 +80,4 @@ volumes:
   webclaw-config:
   ssh-data:
   servers-data:
+  ai-studio-data:
