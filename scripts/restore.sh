@@ -110,6 +110,11 @@ VOLUMES=(
     "webclaw-docker_gitconfig"
     "webclaw-docker_recordings"
     "webclaw-docker_webclaw-config"
+    "webclaw-docker_ssh-data"
+    "webclaw-docker_servers-data"
+    "webclaw-docker_ai-studio-data"
+    "webclaw-docker_skills-data"
+    "webclaw-docker_obsidian-data"
 )
 
 # Check if volumes exist
@@ -142,6 +147,11 @@ TEMP_CONTAINER=$(docker create \
     -v webclaw-docker_gitconfig:/restore/gitconfig \
     -v webclaw-docker_recordings:/restore/recordings \
     -v webclaw-docker_webclaw-config:/restore/webclaw-config \
+    -v webclaw-docker_ssh-data:/restore/ssh-data \
+    -v webclaw-docker_servers-data:/restore/servers-data \
+    -v webclaw-docker_ai-studio-data:/restore/ai-studio-data \
+    -v webclaw-docker_skills-data:/restore/skills-data \
+    -v webclaw-docker_obsidian-data:/restore/obsidian-data \
     -v "$BACKUP_DIR:/backup" \
     ubuntu:22.04 \
     tar xzf "/backup/$(basename "$BACKUP_FILE")" -C /restore)

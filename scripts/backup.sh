@@ -46,6 +46,11 @@ VOLUMES=(
     "webclaw-docker_gitconfig"
     "webclaw-docker_recordings"
     "webclaw-docker_webclaw-config"
+    "webclaw-docker_ssh-data"
+    "webclaw-docker_servers-data"
+    "webclaw-docker_ai-studio-data"
+    "webclaw-docker_skills-data"
+    "webclaw-docker_obsidian-data"
 )
 
 # Create backup directory
@@ -66,7 +71,7 @@ if [ ${#missing_volumes[@]} -gt 0 ]; then
     warn "The following volumes do not exist and will be skipped:"
     for vol in "${missing_volumes[@]}"; do
         warn "  - $vol"
-    fi
+    done
 fi
 
 # Create temporary container for backup
@@ -83,6 +88,11 @@ TEMP_CONTAINER=$(docker create \
     -v webclaw-docker_gitconfig:/backup/gitconfig \
     -v webclaw-docker_recordings:/backup/recordings \
     -v webclaw-docker_webclaw-config:/backup/webclaw-config \
+    -v webclaw-docker_ssh-data:/backup/ssh-data \
+    -v webclaw-docker_servers-data:/backup/servers-data \
+    -v webclaw-docker_ai-studio-data:/backup/ai-studio-data \
+    -v webclaw-docker_skills-data:/backup/skills-data \
+    -v webclaw-docker_obsidian-data:/backup/obsidian-data \
     -v "$BACKUP_DIR:/output" \
     ubuntu:22.04 \
     tar czf "/output/$(basename "$BACKUP_FILE")" -C /backup .)
@@ -127,7 +137,12 @@ cat > "$METADATA_FILE" << EOF
     "v2rayn-data",
     "gitconfig",
     "recordings",
-    "webclaw-config"
+    "webclaw-config",
+    "ssh-data",
+    "servers-data",
+    "ai-studio-data",
+    "skills-data",
+    "obsidian-data"
   ]
 }
 EOF
