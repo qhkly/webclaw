@@ -12,6 +12,7 @@ services:
       - SYS_ADMIN
     security_opt:
       - apparmor:unconfined
+      - seccomp=unconfined
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - dna-data:/home/ubuntu/dna          # DNA 目录：项目源码，空时自动 clone
@@ -67,8 +68,6 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     shm_size: "512m"
-    security_opt:
-      - seccomp=unconfined
     restart: unless-stopped
 
 volumes:
