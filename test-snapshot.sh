@@ -32,6 +32,7 @@ info() {
 
 # Configuration
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
+WEBCLAW_CONTAINER="${WEBCLAW_CONTAINER:-webclaw}"
 
 echo "======================================"
 echo "WebCode Snapshot System Test"
@@ -59,11 +60,11 @@ fi
 echo ""
 
 # Test 3: Check if container is running
-log "Test 3: Checking if webcode container is running..."
-if docker ps | grep -q webcode; then
-    log "✓ webcode container is running"
+log "Test 3: Checking if $WEBCLAW_CONTAINER container is running..."
+if docker inspect -f '{{.State.Running}}' "$WEBCLAW_CONTAINER" 2>/dev/null | grep -qx true; then
+    log "✓ $WEBCLAW_CONTAINER container is running"
 else
-    error "✗ webcode container is not running"
+    error "✗ $WEBCLAW_CONTAINER container is not running"
     info "Please start the container first: docker-compose up -d"
     exit 1
 fi
@@ -71,9 +72,9 @@ echo ""
 
 # Test 4: Check if scripts are in container
 log "Test 4: Checking if snapshot scripts are in container..."
-if docker exec webcode test -f /opt/snapshot.sh && \
-   docker exec webcode test -f /opt/snapshot-restore.sh && \
-   docker exec webcode test -f /opt/snapshot-base.sh; then
+if docker exec "$WEBCLAW_CONTAINER" test -f /opt/snapshot.sh && \
+   docker exec "$WEBCLAW_CONTAINER" test -f /opt/snapshot-restore.sh && \
+   docker exec "$WEBCLAW_CONTAINER" test -f /opt/snapshot-base.sh; then
     log "✓ All snapshot scripts are in container"
 else
     error "✗ Snapshot scripts not found in container"
@@ -84,8 +85,8 @@ echo ""
 
 # Test 5: Check if backup scripts are in container
 log "Test 5: Checking if backup scripts are in container..."
-if docker exec webcode test -f /opt/backup.sh && \
-   docker exec webcode test -f /opt/restore.sh; then
+if docker exec "$WEBCLAW_CONTAINER" test -f /opt/backup.sh && \
+   docker exec "$WEBCLAW_CONTAINER" test -f /opt/restore.sh; then
     log "✓ Backup scripts are in container"
 else
     error "✗ Backup scripts not found in container"
@@ -113,7 +114,7 @@ echo ""
 # Test 7: Create test snapshot
 log "Test 7: Creating test snapshot..."
 SNAPSHOT_NAME="test-$(date +%Y%m%d-%H%M%S)"
-if docker exec webcode bash /opt/snapshot.sh "$SNAPSHOT_NAME"; then
+if docker exec "$WEBCLAW_CONTAINER" bash /opt/snapshot.sh "$SNAPSHOT_NAME"; then
     log "✓ Test snapshot created: $SNAPSHOT_NAME"
 else
     error "✗ Failed to create test snapshot"
@@ -165,7 +166,7 @@ echo ""
 log "Test 10: Creating second snapshot (testing base image reuse)..."
 SNAPSHOT_NAME_2="test-$(date +%Y%m%d-%H%M%S)"
 sleep 2  # Ensure different timestamp
-if docker exec webcode bash /opt/snapshot.sh "$SNAPSHOT_NAME_2"; then
+if docker exec "$WEBCLAW_CONTAINER" bash /opt/snapshot.sh "$SNAPSHOT_NAME_2"; then
     log "✓ Second snapshot created: $SNAPSHOT_NAME_2"
 else
     error "✗ Failed to create second snapshot"
@@ -183,7 +184,7 @@ echo ""
 
 # Test 11: List snapshots via command
 log "Test 11: Listing snapshots..."
-if docker exec webcode bash /opt/snapshot-base.sh list; then
+if docker exec "$WEBCLAW_CONTAINER" bash /opt/snapshot-base.sh list; then
     log "✓ Base image list command works"
 else
     error "✗ Failed to list base images"
@@ -238,7 +239,7 @@ echo ""
 log "✓ Snapshot system is working correctly!"
 echo ""
 info "To test snapshot restore, run:"
-info "  docker exec webcode bash /opt/snapshot-restore.sh ${SNAPSHOT_NAME}"
+info "  docker exec $WEBCLAW_CONTAINER bash /opt/snapshot-restore.sh ${SNAPSHOT_NAME}"
 echo ""
 info "To test via Web UI, open:"
 info "  http://localhost:20000"

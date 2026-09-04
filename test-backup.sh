@@ -8,6 +8,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib/volumes.sh
 source "$SCRIPT_DIR/scripts/lib/volumes.sh"
+WEBCLAW_CONTAINER="${WEBCLAW_CONTAINER:-webclaw}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -37,17 +38,17 @@ fi
 log "✓ Backup volume manifest matches docker-compose.yml"
 
 # Check if container is running
-if ! docker ps | grep -q webcode; then
-    error "Container 'webcode' is not running. Please start it first:"
+if ! docker inspect -f '{{.State.Running}}' "$WEBCLAW_CONTAINER" 2>/dev/null | grep -qx true; then
+    error "Container '$WEBCLAW_CONTAINER' is not running. Please start it first:"
     echo "  docker compose up -d"
     exit 1
 fi
 
-log "Container 'webcode' is running"
+log "Container '$WEBCLAW_CONTAINER' is running"
 
 # Test 1: Check if scripts are executable
 log "Test 1: Checking if backup scripts are executable..."
-if docker exec webcode test -x /opt/backup.sh && docker exec webcode test -x /opt/restore.sh; then
+if docker exec "$WEBCLAW_CONTAINER" test -x /opt/backup.sh && docker exec "$WEBCLAW_CONTAINER" test -x /opt/restore.sh; then
     log "✓ Scripts are executable"
 else
     error "✗ Scripts are not executable"
@@ -56,7 +57,7 @@ fi
 
 # Test 2: Check if backup directory exists
 log "Test 2: Checking if backup directory exists..."
-if docker exec webcode test -d /home/ubuntu/backups; then
+if docker exec "$WEBCLAW_CONTAINER" test -d /home/ubuntu/backups; then
     log "✓ Backup directory exists"
 else
     error "✗ Backup directory does not exist"
@@ -66,7 +67,7 @@ fi
 # Test 3: Create a test backup
 log "Test 3: Creating a test backup..."
 BACKUP_NAME="test-backup-$(date +%Y%m%d-%H%M%S)"
-if docker exec webcode bash -c "BACKUP_DIR=/home/ubuntu/backups bash /opt/backup.sh $BACKUP_NAME" > /tmp/backup-test.log 2>&1; then
+if docker exec "$WEBCLAW_CONTAINER" bash -c "BACKUP_DIR=/home/ubuntu/backups bash /opt/backup.sh $BACKUP_NAME" > /tmp/backup-test.log 2>&1; then
     log "✓ Backup created successfully"
 else
     error "✗ Backup creation failed"
@@ -76,12 +77,12 @@ fi
 
 # Test 4: Check if backup files exist
 log "Test 4: Checking if backup files exist..."
-if docker exec webcode test -f "/home/ubuntu/backups/${BACKUP_NAME}.tar.gz" && \
-   docker exec webcode test -f "/home/ubuntu/backups/${BACKUP_NAME}.json"; then
+if docker exec "$WEBCLAW_CONTAINER" test -f "/home/ubuntu/backups/${BACKUP_NAME}.tar.gz" && \
+   docker exec "$WEBCLAW_CONTAINER" test -f "/home/ubuntu/backups/${BACKUP_NAME}.json"; then
     log "✓ Backup files exist"
 
     # Show backup size
-    BACKUP_SIZE=$(docker exec webcode stat -c%s "/home/ubuntu/backups/${BACKUP_NAME}.tar.gz" 2>/dev/null || echo "0")
+    BACKUP_SIZE=$(docker exec "$WEBCLAW_CONTAINER" stat -c%s "/home/ubuntu/backups/${BACKUP_NAME}.tar.gz" 2>/dev/null || echo "0")
     log "Backup size: $BACKUP_SIZE bytes"
 else
     error "✗ Backup files do not exist"
@@ -90,7 +91,7 @@ fi
 
 # Test 5: Verify backup metadata
 log "Test 5: Verifying backup metadata..."
-METADATA=$(docker exec webcode cat "/home/ubuntu/backups/${BACKUP_NAME}.json")
+METADATA=$(docker exec "$WEBCLAW_CONTAINER" cat "/home/ubuntu/backups/${BACKUP_NAME}.json")
 if echo "$METADATA" | grep -q "name" && echo "$METADATA" | grep -q "created_at"; then
     log "✓ Backup metadata is valid"
 else
@@ -110,7 +111,7 @@ fi
 
 # Test 7: Clean up test backup
 log "Test 7: Cleaning up test backup..."
-docker exec webcode rm -f "/home/ubuntu/backups/${BACKUP_NAME}.tar.gz" "/home/ubuntu/backups/${BACKUP_NAME}.json"
+docker exec "$WEBCLAW_CONTAINER" rm -f "/home/ubuntu/backups/${BACKUP_NAME}.tar.gz" "/home/ubuntu/backups/${BACKUP_NAME}.json"
 log "✓ Test backup cleaned up"
 
 log ""
@@ -118,5 +119,5 @@ log "All tests passed! ✓"
 log ""
 log "You can now use the backup system:"
 log "  - Web UI: http://localhost:20000 (click '备份' tab)"
-log "  - CLI: docker exec -it webcode bash /opt/backup.sh"
+log "  - CLI: docker exec -it $WEBCLAW_CONTAINER bash /opt/backup.sh"
 log ""
