@@ -5,7 +5,8 @@
 set -euo pipefail
 
 TARBALL_URL="https://github.com/qhkly/webclaw-software-manager/archive/refs/heads/main.tar.gz"
-PREINSTALL_URL="https://raw.githubusercontent.com/qhkly/webclaw-software-manager/main/preinstall-full-apps.json"
+PREINSTALL_URL="https://raw.githubusercontent.com/qhkly/webclaw-software-manager/main/preinstall-apps.json"
+PREINSTALL_FULL_URL="https://raw.githubusercontent.com/qhkly/webclaw-software-manager/main/preinstall-full-apps.json"
 
 mkdir -p /opt/install-scripts
 
@@ -16,10 +17,12 @@ curl -fsSL --max-time 60 "$TARBALL_URL" \
 chmod +x /opt/install-scripts/*.sh 2>/dev/null || true
 
 # 每次写入后强制锁回 root 所有、755 权限，断绝 ubuntu 写入路径
-chown root:root /opt/install-scripts
+chown -R root:root /opt/install-scripts
 chmod 755 /opt/install-scripts
 
 curl -fsSL --max-time 30 "$PREINSTALL_URL" \
+  -o /opt/preinstall-apps.json 2>/dev/null || true
+curl -fsSL --max-time 30 "$PREINSTALL_FULL_URL" \
   -o /opt/preinstall-full-apps.json 2>/dev/null || true
 
 echo "updated"

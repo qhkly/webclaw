@@ -54,12 +54,7 @@ RUN chmod +x /opt/enable-claudecodeui-platform-mode.sh && \
 
 # ─── 更新 install-scripts（full 层始终使用最新安装脚本）────────────────────────────
 # 修复某个安装脚本后，只需重触发 build-full，无需重建 desktop 层
-RUN (curl -fsSL "https://github.com/qhkly/webclaw-software-manager/archive/refs/heads/main.tar.gz" \
-    | tar -xz --strip-components=2 -C /opt/install-scripts/ "webclaw-software-manager-main/scripts/" 2>/dev/null \
-    || true) \
-    && chmod +x /opt/install-scripts/*.sh 2>/dev/null || true \
-    && (curl -fsSL "https://raw.githubusercontent.com/qhkly/webclaw-software-manager/main/preinstall-full-apps.json" \
-        -o /opt/preinstall-full-apps.json 2>/dev/null || true)
+RUN /usr/local/bin/webclaw-scripts-updater || true
 
 # ─── 5f. full 额外预装（由 webclaw-software-manager/preinstall-full-apps.json 管理）──
 # 预装列表在 webclaw-software-manager 仓库维护，无需改动此 Dockerfile。

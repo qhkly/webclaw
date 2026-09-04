@@ -402,6 +402,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/webclaw-desktop-panel-safe-refresh.sh /usr/local/bin/webclaw-desktop-panel-safe-refresh \
     && cp /tmp/_scripts/install-antigravity.sh /usr/local/bin/install-antigravity \
     && cp /tmp/_scripts/preinstall-on-demand.sh /usr/local/bin/preinstall-on-demand.sh \
+    && cp /tmp/_scripts/webclaw-scripts-updater /usr/local/bin/webclaw-scripts-updater \
     && cp /tmp/_configs/install-qq.sh /opt/install-qq.sh \
     && cp /tmp/_configs/uninstall-qq.sh /opt/uninstall-qq.sh \
     && cp /tmp/_configs/qq-install-wrapper.sh /opt/qq-install-wrapper.sh \
@@ -452,6 +453,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /usr/local/bin/update-desktop-icons /usr/local/bin/webclaw-desktop-panel-safe-refresh \
         /usr/local/bin/install-antigravity \
         /usr/local/bin/preinstall-on-demand.sh \
+        /usr/local/bin/webclaw-scripts-updater \
         /usr/local/bin/on-demand-helpers/*.sh \
         /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
@@ -477,17 +479,9 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
         /opt/install-discord.sh /opt/uninstall-discord.sh \
         /opt/install-webclaw-software-manager.sh /opt/uninstall-webclaw-software-manager.sh \
-    && mkdir -p /opt/install-scripts \
     && echo "下载 install-scripts..." \
-    && curl -fsSL "https://github.com/qhkly/webclaw-software-manager/archive/refs/heads/main.tar.gz" \
-        | tar -xz --strip-components=2 -C /opt/install-scripts/ "webclaw-software-manager-main/scripts/" \
+    && /usr/local/bin/webclaw-scripts-updater \
     && echo "install-scripts 下载完成" \
-    && chmod +x /opt/install-scripts/*.sh 2>/dev/null || echo "警告: 部分脚本没有执行权限" \
-    && chown -R root:root /opt/install-scripts \
-    && (curl -fsSL "https://raw.githubusercontent.com/qhkly/webclaw-software-manager/main/preinstall-apps.json" \
-        -o /opt/preinstall-apps.json 2>/dev/null || true) \
-    && (curl -fsSL "https://raw.githubusercontent.com/qhkly/webclaw-software-manager/main/preinstall-full-apps.json" \
-        -o /opt/preinstall-full-apps.json 2>/dev/null || true) \
     && mkdir -p /opt/dashboard-override \
     && chown -R ubuntu:ubuntu /opt/dashboard-override \
     && printf '\n# Theme switch aliases\nalias light-mode="/usr/local/bin/theme-switch light"\nalias dark-mode="/usr/local/bin/theme-switch dark"\n' >> /home/ubuntu/.bashrc \
