@@ -13,7 +13,6 @@ LABEL org.opencontainers.image.title="webclaw_full" \
 ENV WEBCODE_HAS_VIBE_KANBAN=true
 ENV WEBCODE_HAS_CLAUDECODEUI=true
 
-COPY configs/supervisord-full.conf /etc/supervisor/supervisord.conf
 COPY configs/supervisor-vibe-kanban.conf /etc/supervisor/conf.d/supervisor-vibe-kanban.conf
 COPY configs/supervisor-claudecodeui.conf /etc/supervisor/conf.d/supervisor-claudecodeui.conf
 
