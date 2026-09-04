@@ -368,6 +368,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_configs/supervisor-dashboard.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_configs/supervisor-clipboard.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_configs/supervisor-ssh.conf /etc/supervisor/conf.d/ \
+    && cp /tmp/_configs/supervisor-webcode-studiod.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_scripts/theme-switch.sh /usr/local/bin/theme-switch \
     && cp /tmp/_scripts/lang-switch.sh /usr/local/bin/lang-switch \
     && cp /tmp/_scripts/desktop-language-picker.sh /usr/local/bin/desktop-language-picker \
@@ -375,6 +376,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/start-dashboard.sh /opt/start-dashboard.sh \
     && cp /tmp/_scripts/start-webtty.sh /opt/start-webtty.sh \
     && cp /tmp/_scripts/start-openclaw.sh /opt/start-openclaw.sh \
+    && cp /tmp/_scripts/start-webcode-studiod.sh /opt/start-webcode-studiod.sh \
     && cp /tmp/_scripts/start-ssh.sh /opt/start-ssh.sh \
     && cp /tmp/_scripts/openclaw-browser.sh /usr/local/bin/openclaw-browser \
     && cp /tmp/_scripts/code-server-browser.sh /usr/local/bin/code-server-browser \
@@ -432,6 +434,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /usr/local/bin/theme-switch /usr/local/bin/lang-switch \
         /usr/local/bin/desktop-language-picker /usr/local/bin/desktop-theme-picker \
         /opt/start-dashboard.sh /opt/start-webtty.sh /opt/start-openclaw.sh /opt/start-ssh.sh \
+        /opt/start-webcode-studiod.sh \
         /usr/local/bin/openclaw-browser /usr/local/bin/code-server-browser \
         /opt/install-hermes.sh /opt/uninstall-hermes.sh /usr/local/bin/hermes-launcher \
         /opt/install-webcode-ai-studio.sh \

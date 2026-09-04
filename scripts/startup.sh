@@ -203,7 +203,8 @@ if [ -f "$WEBCODE_CFG" ]; then
   echo "[startup] Loading persisted config from $WEBCODE_CFG"
   for KEY in AUTH_USER AUTH_PASSWORD VNC_PASSWORD OPENCLAW_GATEWAY_TOKEN \
              GIT_USER_NAME GIT_USER_EMAIL CF_TUNNEL_TOKEN \
-             ENABLE_KANBAN ENABLE_OPENCLAW ENABLE_CLAUDECODEUI; do
+             ENABLE_KANBAN ENABLE_OPENCLAW ENABLE_CLAUDECODEUI \
+             ENABLE_WEBCODE_STUDIOD AI_STUDIO_PEER_TOKEN AI_STUDIO_PEER_SCOPE; do
     VAL=$(python3 -c "
 import json,sys
 try:
@@ -249,6 +250,11 @@ export ENABLE_KANBAN="${ENABLE_KANBAN:-$WEBCODE_HAS_VIBE_KANBAN}"
 export ENABLE_OPENCLAW="${ENABLE_OPENCLAW:-true}"
 export ENABLE_CLAUDECODEUI="${ENABLE_CLAUDECODEUI:-$WEBCODE_HAS_CLAUDECODEUI}"
 export ENABLE_FUSE="${ENABLE_FUSE:-false}"
+
+# AI Studio 无头节点。默认**关闭**：开着就等于允许外面那台 Studio 接进来，
+# 在容器里起 CLI 进程、读写 /home/ubuntu。这是一次姿态变更，该由用户显式点头，
+# 不该因为升级了个镜像就悄悄打开。上游 AI_STUDIO_PEER_ENABLED 默认关也是同一个道理。
+export ENABLE_WEBCODE_STUDIOD="${ENABLE_WEBCODE_STUDIOD:-false}"
 
 # ─── Desktop icons behavior ────────────────────────────────────────────
 # CLEAN_DESKTOP: 控制桌面图标显示行为

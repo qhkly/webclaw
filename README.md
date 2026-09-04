@@ -246,6 +246,9 @@ Create a `.env` file next to `docker-compose.yml`, or pass `-e` flags to `docker
 | `GIT_USER_NAME` | — | Git commit username |
 | `GIT_USER_EMAIL` | — | Git commit email |
 | `CF_TUNNEL_TOKEN` | empty | Cloudflare Tunnel token — enables remote access when set |
+| `ENABLE_WEBCODE_STUDIOD` | `false` | AI Studio headless node — lets your local WebCode AI Studio drive this container as a remote Studio. Works in lite/desktop/full; reachable through the existing gateway at `http://<host>:20000/proxy/10010`, no extra port. |
+| `AI_STUDIO_PEER_TOKEN` | same as `AUTH_PASSWORD` | Federation token; leave empty to reuse the login password |
+| `AI_STUDIO_PEER_SCOPE` | `lan` | Access scope: `lan` or `tunnel` |
 
 > **Note:** If a value is set via both `webclaw-config` volume and environment variable, the volume value takes priority (so runtime changes aren't overwritten on restart).
 
@@ -634,8 +637,50 @@ docker compose up -d
 | `GIT_USER_NAME` | — | Git 提交用户名 |
 | `GIT_USER_EMAIL` | — | Git 提交邮箱 |
 | `CF_TUNNEL_TOKEN` | 空（不启用）| Cloudflare Tunnel token，设置后自动启用远程访问 |
+| `ENABLE_WEBCODE_STUDIOD` | `false` | AI Studio 无头节点，见下方 |
+| `AI_STUDIO_PEER_TOKEN` | 同 `AUTH_PASSWORD` | 联邦 token；留空即复用登录密码 |
+| `AI_STUDIO_PEER_SCOPE` | `lan` | 接入范围：`lan` 或 `tunnel` |
 
 > **说明：** 如果同时通过 `webclaw-config` 数据卷和环境变量设置了同一项，数据卷中的值优先（运行时修改不会被容器重启覆盖）。
+
+### AI Studio 无头节点（`ENABLE_WEBCODE_STUDIOD`）
+
+容器里预装了 `webcode-studiod`——WebCode AI Studio 的无头引擎。打开之后，你本机的
+AI Studio 可以把这个容器当成一台**远程 Studio** 接进去：容器里的工程和会话出现在
+本机侧边栏，CLI 进程实际跑在容器里。
+
+三种镜像（lite / desktop / full）**都能用**。它装在 `Dockerfile.base` 里，
+而且不链接 tauri、不依赖 X 和 WebKitGTK——这正是它和桌面版按需安装的那个
+AppImage（`install-webcode-ai-studio.sh`）的区别，后者只有 desktop / full 用得上。
+
+**不需要额外开端口。** 它监听容器内的 10010，走 dashboard-server 的统一代理
+对外露出，用的还是已经映射好的 20000：
+
+```
+http://<主机>:20000/proxy/10010
+```
+
+在本机 AI Studio 里：`⋯ → 远程 Studio → 接入一台`，地址填上面这行，
+token 填 `AUTH_PASSWORD`（或你自己设的 `AI_STUDIO_PEER_TOKEN`）。
+
+```bash
+ENABLE_WEBCODE_STUDIOD=true docker compose up -d
+```
+
+> **两道门，一把钥匙。** 请求要先过 dashboard-server 的鉴权，再过 studiod 自己的
+> peer token，而客户端只能带一个 `Authorization` 头。所以 `AI_STUDIO_PEER_TOKEN`
+> 默认就取 `AUTH_PASSWORD`。要把两者分开管，得同时让 dashboard-server 认得新
+> token，否则外层先 401，请求根本到不了 studiod。
+
+> **默认关是有意的。** 打开它等于允许外面那台 Studio 在容器里起进程、读写
+> `/home/ubuntu`。另外注意：经过本地反向代理之后，studiod 那条「`/mcp` 只对
+> loopback 开放」的限制对代理流量不再成立——`/proxy/10010/mcp` 同样能到达。
+> 实际风险有限（`/proxy/10001/` 的 code-server 本来就等于容器内一个 shell），
+> 但这意味着 **dashboard 的密码就是这条链路唯一的门**，别用默认的 `changeme`。
+
+> **文件与 Git 权限**默认是关的，而且刻意没有环境变量入口。无头容器里要打开，
+> 只能改 `AI_STUDIO_DATA_DIR/peers.json`（默认 `/home/ubuntu/.webclaw/ai-studio/peers.json`）
+> 里的 `allow_files` / `allow_git`，然后重启该服务。
 
 ```bash
 cp .env.example .env

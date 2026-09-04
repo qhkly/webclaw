@@ -50,6 +50,13 @@ services:
       - ENABLE_KANBAN=${ENABLE_KANBAN:-false}
       - ENABLE_OPENCLAW=${ENABLE_OPENCLAW:-true}
       - ENABLE_CLAUDECODEUI=${ENABLE_CLAUDECODEUI:-false}
+      # AI Studio 无头节点：开了之后本机的 WebCode AI Studio 可以把这个容器当成
+      # 一台远程 Studio 接进去。走 20000 的统一代理，不额外开端口：
+      #   http://<host>:20000/proxy/10010
+      # token 默认取 AUTH_PASSWORD（两道门要同一把钥匙，见 start-webcode-studiod.sh）。
+      - ENABLE_WEBCODE_STUDIOD=${ENABLE_WEBCODE_STUDIOD:-false}
+      - AI_STUDIO_PEER_TOKEN=${AI_STUDIO_PEER_TOKEN:-}
+      - AI_STUDIO_PEER_SCOPE=${AI_STUDIO_PEER_SCOPE:-lan}
       - HOST_API_TOKEN=${HOST_API_TOKEN:-webclaw-host-token-change-me}
       # 个人技能云同步（远程部署）：在 .env 填入技能仓库地址与访问令牌后自动双向同步
       - SKILLS_REPO_URL=${SKILLS_REPO_URL:-}

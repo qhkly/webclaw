@@ -138,6 +138,22 @@ RUN npm install -g openclaw@2026.5.7
 RUN apt-get update && apt-get install -y --no-install-recommends sshfs \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# ─── 5e. webcode-studiod：AI Studio 无头节点 ──────────────────────────
+# 放在 base 而不是 Dockerfile：lite / 桌面 / full 三种镜像都要有它。
+# lite 里也能跑——这是不链接 tauri 的无头二进制，没有 X 也没有 WebKitGTK 依赖，
+# 这正是它和按需安装的那个 AppImage（install-webcode-ai-studio.sh，桌面专用）
+# 的根本区别。装在 base 就是一次下载、三个镜像共用同一层。
+#
+# 放在整个文件靠后：版本跟着 AI Studio 发布走，改得比上面那些都勤，
+# 不该让它把 npm / code-server 那几层昂贵的缓存冲掉。
+# 默认装最新版：版本号从 R2 的 latest.json 现取，不写死在这里。
+# 想复现某次构建就显式传 --build-arg WEBCODE_STUDIOD_VERSION=0.1.66。
+ARG WEBCODE_STUDIOD_VERSION=latest
+COPY scripts/install-webcode-studiod.sh /tmp/install-webcode-studiod.sh
+RUN chmod +x /tmp/install-webcode-studiod.sh \
+    && WEBCODE_STUDIOD_VERSION="${WEBCODE_STUDIOD_VERSION}" /tmp/install-webcode-studiod.sh \
+    && rm -f /tmp/install-webcode-studiod.sh
+
 # ─── Metadata ───────────────────────────────────────────────────────
 ARG WEBCODE_VERSION=dev
 ARG CODE_SERVER_VER=4.100.2
