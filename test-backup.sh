@@ -5,6 +5,10 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/volumes.sh
+source "$SCRIPT_DIR/scripts/lib/volumes.sh"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -21,6 +25,16 @@ error() {
 warn() {
     echo -e "${YELLOW}[test]${NC} $1"
 }
+
+log "Test 0: Checking backup volume manifest..."
+compose_volumes="$(docker compose config --volumes | sort)"
+manifest_volumes="$(printf '%s\n' "${WEBCLAW_VOLUME_NAMES[@]}" | sort)"
+if [ "$compose_volumes" != "$manifest_volumes" ]; then
+    error "Backup volume manifest differs from docker-compose.yml"
+    diff -u <(printf '%s\n' "$compose_volumes") <(printf '%s\n' "$manifest_volumes") || true
+    exit 1
+fi
+log "✓ Backup volume manifest matches docker-compose.yml"
 
 # Check if container is running
 if ! docker ps | grep -q webcode; then

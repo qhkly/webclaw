@@ -9,6 +9,10 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/volumes.sh
+source "$SCRIPT_DIR/lib/volumes.sh"
+
 # Configuration
 BACKUP_DIR="${BACKUP_DIR:-/home/ubuntu/backups}"
 BACKUP_NAME="${1:-webclaw-$(date +%Y%m%d-%H%M%S)}"
@@ -33,25 +37,7 @@ error() {
     echo -e "${RED}[backup]${NC} $1"
 }
 
-# List of volumes to backup (from docker-compose.yml)
-VOLUMES=(
-    "webclaw-docker_dna-data"
-    "webclaw-docker_projects"
-    "webclaw-docker_vibe-kanban-data"
-    "webclaw-docker_code-server-data"
-    "webclaw-docker_user-data"
-    "webclaw-docker_openclaw-data"
-    "webclaw-docker_chrome-data"
-    "webclaw-docker_v2rayn-data"
-    "webclaw-docker_gitconfig"
-    "webclaw-docker_recordings"
-    "webclaw-docker_webclaw-config"
-    "webclaw-docker_ssh-data"
-    "webclaw-docker_servers-data"
-    "webclaw-docker_ai-studio-data"
-    "webclaw-docker_skills-data"
-    "webclaw-docker_obsidian-data"
-)
+mapfile -t VOLUMES < <(webclaw_volumes)
 
 # Create backup directory
 mkdir -p "$BACKUP_DIR"
@@ -76,23 +62,13 @@ fi
 
 # Create temporary container for backup
 log "Creating temporary backup container..."
+volume_mounts=()
+volume_prefix="$(webclaw_volume_prefix)"
+for name in "${WEBCLAW_VOLUME_NAMES[@]}"; do
+    volume_mounts+=( -v "${volume_prefix}${name}:/backup/${name}" )
+done
 TEMP_CONTAINER=$(docker create \
-    -v webclaw-docker_dna-data:/backup/dna-data \
-    -v webclaw-docker_projects:/backup/projects \
-    -v webclaw-docker_vibe-kanban-data:/backup/vibe-kanban-data \
-    -v webclaw-docker_code-server-data:/backup/code-server-data \
-    -v webclaw-docker_user-data:/backup/user-data \
-    -v webclaw-docker_openclaw-data:/backup/openclaw-data \
-    -v webclaw-docker_chrome-data:/backup/chrome-data \
-    -v webclaw-docker_v2rayn-data:/backup/v2rayn-data \
-    -v webclaw-docker_gitconfig:/backup/gitconfig \
-    -v webclaw-docker_recordings:/backup/recordings \
-    -v webclaw-docker_webclaw-config:/backup/webclaw-config \
-    -v webclaw-docker_ssh-data:/backup/ssh-data \
-    -v webclaw-docker_servers-data:/backup/servers-data \
-    -v webclaw-docker_ai-studio-data:/backup/ai-studio-data \
-    -v webclaw-docker_skills-data:/backup/skills-data \
-    -v webclaw-docker_obsidian-data:/backup/obsidian-data \
+    "${volume_mounts[@]}" \
     -v "$BACKUP_DIR:/output" \
     ubuntu:22.04 \
     tar czf "/output/$(basename "$BACKUP_FILE")" -C /backup .)
@@ -126,23 +102,7 @@ cat > "$METADATA_FILE" << EOF
   "name": "$BACKUP_NAME",
   "created_at": "$(date -Iseconds)",
   "size": "$BACKUP_SIZE",
-  "volumes": [
-    "dna-data",
-    "projects",
-    "vibe-kanban-data",
-    "code-server-data",
-    "user-data",
-    "openclaw-data",
-    "chrome-data",
-    "v2rayn-data",
-    "gitconfig",
-    "recordings",
-    "webclaw-config",
-    "ssh-data",
-    "servers-data",
-    "ai-studio-data",
-    "skills-data",
-    "obsidian-data"
+  "volumes": [$(printf '\n    "%s",' "${WEBCLAW_VOLUME_NAMES[@]}" | sed '$ s/,$//')
   ]
 }
 EOF

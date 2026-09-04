@@ -146,7 +146,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
-            THEIA_BASE_VERSION=${{ github.sha }}
+            WEBCLAW_BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/webclaw_base
+            WEBCLAW_BASE_VERSION=${{ github.sha }}
             INSTALL_DESKTOP=true
             WEBCODE_VERSION=${{ github.sha }}
           tags: ${{ steps.meta-full.outputs.tags }}
@@ -224,7 +225,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
-            THEIA_BASE_VERSION=${{ github.sha }}
+            WEBCLAW_BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/webclaw_base
+            WEBCLAW_BASE_VERSION=${{ github.sha }}
             INSTALL_DESKTOP=false
             WEBCODE_VERSION=${{ github.sha }}
           tags: ${{ steps.meta-lite.outputs.tags }}

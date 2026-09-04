@@ -28,6 +28,11 @@ WebCode 现在支持完整的容器状态备份和还原功能，类似 Ghost CM
 - `gitconfig` - Git 配置
 - `recordings` - 录制文件
 - `webclaw-config` - WebCode 运行时配置
+- `ssh-data` - SSH 密钥与配置
+- `servers-data` - 远程服务器工作目录
+- `ai-studio-data` - AI Studio 连接与密钥数据
+- `skills-data` - 用户自定义技能
+- `obsidian-data` - Obsidian 笔记
 
 ## 使用方法
 
@@ -103,7 +108,12 @@ webclaw-docker/
     "v2rayn-data",
     "gitconfig",
     "recordings",
-    "webclaw-config"
+    "webclaw-config",
+    "ssh-data",
+    "servers-data",
+    "ai-studio-data",
+    "skills-data",
+    "obsidian-data"
   ]
 }
 ```

@@ -10,6 +10,10 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/volumes.sh
+source "$SCRIPT_DIR/lib/volumes.sh"
+
 # Configuration
 BACKUP_DIR="${BACKUP_DIR:-/home/ubuntu/backups}"
 
@@ -97,25 +101,7 @@ supervisorctl stop vibe-kanban >/dev/null 2>&1 || true
 supervisorctl stop openclaw >/dev/null 2>&1 || true
 supervisorctl stop claudecodeui >/dev/null 2>&1 || true
 
-# List of volumes to restore
-VOLUMES=(
-    "webclaw-docker_dna-data"
-    "webclaw-docker_projects"
-    "webclaw-docker_vibe-kanban-data"
-    "webclaw-docker_code-server-data"
-    "webclaw-docker_user-data"
-    "webclaw-docker_openclaw-data"
-    "webclaw-docker_chrome-data"
-    "webclaw-docker_v2rayn-data"
-    "webclaw-docker_gitconfig"
-    "webclaw-docker_recordings"
-    "webclaw-docker_webclaw-config"
-    "webclaw-docker_ssh-data"
-    "webclaw-docker_servers-data"
-    "webclaw-docker_ai-studio-data"
-    "webclaw-docker_skills-data"
-    "webclaw-docker_obsidian-data"
-)
+mapfile -t VOLUMES < <(webclaw_volumes)
 
 # Check if volumes exist
 missing_volumes=()
@@ -135,23 +121,13 @@ fi
 
 # Create temporary container for restore
 log "Creating temporary restore container..."
+volume_mounts=()
+volume_prefix="$(webclaw_volume_prefix)"
+for name in "${WEBCLAW_VOLUME_NAMES[@]}"; do
+    volume_mounts+=( -v "${volume_prefix}${name}:/restore/${name}" )
+done
 TEMP_CONTAINER=$(docker create \
-    -v webclaw-docker_dna-data:/restore/dna-data \
-    -v webclaw-docker_projects:/restore/projects \
-    -v webclaw-docker_vibe-kanban-data:/restore/vibe-kanban-data \
-    -v webclaw-docker_code-server-data:/restore/code-server-data \
-    -v webclaw-docker_user-data:/restore/user-data \
-    -v webclaw-docker_openclaw-data:/restore/openclaw-data \
-    -v webclaw-docker_chrome-data:/restore/chrome-data \
-    -v webclaw-docker_v2rayn-data:/restore/v2rayn-data \
-    -v webclaw-docker_gitconfig:/restore/gitconfig \
-    -v webclaw-docker_recordings:/restore/recordings \
-    -v webclaw-docker_webclaw-config:/restore/webclaw-config \
-    -v webclaw-docker_ssh-data:/restore/ssh-data \
-    -v webclaw-docker_servers-data:/restore/servers-data \
-    -v webclaw-docker_ai-studio-data:/restore/ai-studio-data \
-    -v webclaw-docker_skills-data:/restore/skills-data \
-    -v webclaw-docker_obsidian-data:/restore/obsidian-data \
+    "${volume_mounts[@]}" \
     -v "$BACKUP_DIR:/backup" \
     ubuntu:22.04 \
     tar xzf "/backup/$(basename "$BACKUP_FILE")" -C /restore)

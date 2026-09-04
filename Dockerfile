@@ -421,6 +421,8 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/dockerd-condition.sh /usr/local/bin/dockerd-condition.sh \
     && cp /tmp/_scripts/backup.sh /opt/backup.sh \
     && cp /tmp/_scripts/restore.sh /opt/restore.sh \
+    && mkdir -p /opt/lib \
+    && cp /tmp/_scripts/lib/volumes.sh /opt/lib/volumes.sh \
     && cp /tmp/_scripts/snapshot.sh /opt/snapshot.sh \
     && cp /tmp/_scripts/snapshot-restore.sh /opt/snapshot-restore.sh \
     && cp /tmp/_scripts/snapshot-base.sh /opt/snapshot-base.sh \

@@ -275,10 +275,10 @@ The fastest way to build is using the pre-built base image from Docker Hub:
 docker pull land007/webclaw_base:latest
 
 # Build full version (30-60 seconds, using cached base)
-docker build -t webclaw:latest --build-arg THEIA_BASE_VERSION=latest .
+docker build -t webclaw:latest --build-arg WEBCLAW_BASE_VERSION=latest .
 
 # Build lite version (5-10 seconds, using cached base)
-docker build -t webclaw:latest --build-arg THEIA_BASE_VERSION=latest --build-arg INSTALL_DESKTOP=false .
+docker build -t webclaw:latest --build-arg WEBCLAW_BASE_VERSION=latest --build-arg INSTALL_DESKTOP=false .
 ```
 
 **Benefits:**
@@ -298,10 +298,10 @@ git clone https://github.com/land007/webclaw.git && cd webclaw
 docker build -f Dockerfile.base -t webcode:base-theia-local .
 
 # Step 2a: Build full version (30-60 seconds)
-docker build -t webclaw:latest --build-arg THEIA_BASE_VERSION=local .
+docker build -t webclaw:latest --build-arg WEBCLAW_BASE_VERSION=local .
 
 # Step 2b: OR build lite version (5-10 seconds)
-docker build -t webclaw:latest --build-arg THEIA_BASE_VERSION=local --build-arg INSTALL_DESKTOP=false .
+docker build -t webclaw:latest --build-arg WEBCLAW_BASE_VERSION=local --build-arg INSTALL_DESKTOP=false .
 ```
 
 **Image size:** ~2.5-3 GB (full) / ~1-1.5 GB (lite)
@@ -319,14 +319,14 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 
 # Build full version
 docker buildx build --platform linux/amd64,linux/arm64 \
-  --build-arg THEIA_BASE_VERSION=latest \
+  --build-arg WEBCLAW_BASE_VERSION=latest \
   --build-arg INSTALL_DESKTOP=true \
   -t land007/webclaw:latest \
   --push .
 
 # Build lite version
 docker buildx build --platform linux/amd64,linux/arm64 \
-  --build-arg THEIA_BASE_VERSION=latest \
+  --build-arg WEBCLAW_BASE_VERSION=latest \
   --build-arg INSTALL_DESKTOP=false \
   -t land007/webclaw:latest \
   --push .
@@ -701,10 +701,10 @@ docker compose up -d
 docker pull land007/webclaw_base:latest
 
 # 构建完整版（30-60 秒，使用缓存的基础镜像）
-docker build -t webclaw:latest --build-arg THEIA_BASE_VERSION=latest .
+docker build -t webclaw:latest --build-arg WEBCLAW_BASE_VERSION=latest .
 
 # 构建精简版（5-10 秒，使用缓存的基础镜像）
-docker build -t webclaw:latest --build-arg THEIA_BASE_VERSION=latest --build-arg INSTALL_DESKTOP=false .
+docker build -t webclaw:latest --build-arg WEBCLAW_BASE_VERSION=latest --build-arg INSTALL_DESKTOP=false .
 ```
 
 **优势：**
@@ -724,10 +724,10 @@ git clone https://github.com/land007/webclaw.git && cd webclaw
 docker build -f Dockerfile.base -t webcode:base-theia-local .
 
 # 步骤 2a：构建完整版（30-60 秒）
-docker build -t webclaw:latest --build-arg THEIA_BASE_VERSION=local .
+docker build -t webclaw:latest --build-arg WEBCLAW_BASE_VERSION=local .
 
 # 步骤 2b：或构建精简版（5-10 秒）
-docker build -t webclaw:latest --build-arg THEIA_BASE_VERSION=local --build-arg INSTALL_DESKTOP=false .
+docker build -t webclaw:latest --build-arg WEBCLAW_BASE_VERSION=local --build-arg INSTALL_DESKTOP=false .
 ```
 
 **镜像大小：** ~2.5-3 GB（完整版） / ~1-1.5 GB（精简版）
@@ -745,14 +745,14 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 
 # 构建完整版
 docker buildx build --platform linux/amd64,linux/arm64 \
-  --build-arg THEIA_BASE_VERSION=latest \
+  --build-arg WEBCLAW_BASE_VERSION=latest \
   --build-arg INSTALL_DESKTOP=true \
   -t land007/webclaw:latest \
   --push .
 
 # 构建精简版
 docker buildx build --platform linux/amd64,linux/arm64 \
-  --build-arg THEIA_BASE_VERSION=latest \
+  --build-arg WEBCLAW_BASE_VERSION=latest \
   --build-arg INSTALL_DESKTOP=false \
   -t land007/webclaw:latest \
   --push .
