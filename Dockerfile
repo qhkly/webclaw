@@ -553,8 +553,9 @@ RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
         && cp /tmp/_scripts/audio-ws-wrapper.sh /opt/ \
         && chmod +x /opt/audio-ws-server.py /opt/audio-ws-wrapper.sh \
         && cp /tmp/_configs/clipboard-server.js /opt/clipboard-server.js \
+        && cp /tmp/_configs/clipboard-holder.py /opt/clipboard-holder.py \
         && cp /tmp/_configs/custom-clipboard-image.js /opt/noVNC/custom-clipboard-image.js \
-        && chmod +x /opt/clipboard-server.js \
+        && chmod +x /opt/clipboard-server.js /opt/clipboard-holder.py \
         && sed -i 's|</body>|<script type="module">import UI from "./app/ui.js";window.UI=UI;</script><script src="custom-clipboard-image.js?v=20260531b"></script></body>|' /opt/noVNC/vnc.html \
         && cp /opt/desktop-shortcuts/hermes-uninstall.desktop /usr/share/applications/ \
         && cp /tmp/_configs/desktop-shortcuts/launchpad.desktop /usr/share/applications/launchpad.desktop \
