@@ -25,6 +25,9 @@
 
 set -u
 
+# shellcheck source=lib/on-demand-core.sh
+source "${WEBCLAW_LIB_DIR:-/opt/lib}/on-demand-core.sh"
+
 MANIFEST_DIR="${PREINSTALL_MANIFEST_DIR:-/opt/on-demand-apps}"
 POSTINSTALL_BIN="${PREINSTALL_POSTINSTALL_BIN:-/usr/local/bin/webclaw-app-postinstall}"
 ARCH=$(dpkg --print-architecture)
@@ -683,14 +686,16 @@ github_api_download() {
 }
 
 # ── 检测应用是否已装,跳过 ───────────────────────────────────────────
-already_installed() {
-    local install_method="$1" pkg="$2" bin="$3"
-    # appimage, cursor_api, direct_download, r2_download 都检查二进制文件
-    if [[ "$install_method" =~ ^(appimage|cursor_api|direct_download|r2_download)$ ]]; then
-        [ -x "$bin" ]
-    else
-        dpkg -s "$pkg" >/dev/null 2>&1 && [ -x "$bin" ]
+already_installed() { webclaw_app_installed "$@"; }
+
+preinstall_custom_script() {
+    local id="$1" manifest="$2" script
+    script="$(jq -r '.install_script // empty' "$manifest")"
+    if [ -z "$script" ] || [ ! -f "$script" ]; then
+        warn "$id: install_script 不存在: $script"
+        return 1
     fi
+    WEBCLAW_DOCKER_BUILD=1 DISABLE_ZENITY=1 bash "$script"
 }
 
 # ── 主循环 ──────────────────────────────────────────────────────────
@@ -719,6 +724,7 @@ for manifest in "$MANIFEST_DIR"/*.json; do
         appimage)        preinstall_appimage        "$id" "$manifest" && installed=true || warn "$id: 预装失败,运行时按需安装可兜底" ;;
         cursor_api)      preinstall_cursor_api      "$id" "$manifest" && installed=true || warn "$id: 预装失败,运行时按需安装可兜底" ;;
         direct_download) preinstall_direct_download "$id" "$manifest" && installed=true || warn "$id: 预装失败,运行时按需安装可兜底" ;;
+        custom_script)   preinstall_custom_script   "$id" "$manifest" && installed=true || warn "$id: 预装失败,运行时按需安装可兜底" ;;
         *)               warn "$id: 未知 install_method=$install_method,跳过" ;;
     esac
 

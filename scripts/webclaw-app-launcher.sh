@@ -26,6 +26,9 @@
 set -u
 set -o pipefail
 
+# shellcheck source=lib/on-demand-core.sh
+source "${WEBCLAW_LIB_DIR:-/opt/lib}/on-demand-core.sh"
+
 # ─── 自动检测 DISPLAY（桌面环境可能未传递此变量）────────────
 if [ -z "${DISPLAY:-}" ]; then
     # 检查 X11 socket 目录来确定正确的 DISPLAY
@@ -89,11 +92,7 @@ prepare_log() {
 }
 
 is_app_installed() {
-    if [ "$INSTALL_METHOD" = "appimage" ] || [ "$INSTALL_METHOD" = "r2_download" ] || [ "$INSTALL_METHOD" = "direct_download" ] || [ "$INSTALL_METHOD" = "cursor_api" ] || [ "$INSTALL_METHOD" = "custom_script" ]; then
-        [ -x "$BIN" ]
-    else
-        dpkg -s "$PKG" 2>/dev/null | grep -q "Status: install ok installed" && [ -x "$BIN" ]
-    fi
+    webclaw_app_installed "$INSTALL_METHOD" "$PKG" "$BIN"
 }
 
 is_app_present() {

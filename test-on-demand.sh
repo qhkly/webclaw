@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MANIFEST_DIR="$ROOT_DIR/configs/on-demand-apps"
 LAUNCHER="$ROOT_DIR/scripts/webclaw-app-launcher.sh"
 PREINSTALL="$ROOT_DIR/scripts/preinstall-on-demand.sh"
-KNOWN_METHODS=(apt github_release appimage direct_download cursor_api custom_script tarball r2_download)
+KNOWN_METHODS=(apt github_release appimage direct_download cursor_api custom_script tarball)
 failures=0
 
 fail() {

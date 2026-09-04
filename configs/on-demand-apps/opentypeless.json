@@ -4,6 +4,7 @@
   "name": "OpenTypeless",
   "package": "open-typeless",
   "binary": "/usr/bin/opentypeless",
+  "install_method": "github_release",
   "github_repo": "land007/opentypeless",
   "asset_pattern": "OpenTypeless_{version_no_v}_{arch}.deb",
   "arch_map": {
