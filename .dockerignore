@@ -2,4 +2,6 @@
 .github
 .env
 *.md
-docker_ubuntu-unity-novnc/
+backups/
+images/
+.DS_Store

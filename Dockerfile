@@ -77,24 +77,6 @@ RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
         && apt-get clean && rm -rf /var/lib/apt/lists/*; \
     fi
 
-# ─── 6d. Theme switch script (light/dark mode) ─────────────────────────
-RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
-        if [ -f scripts/theme-switch.sh ]; then \
-            cp scripts/theme-switch.sh /usr/local/bin/theme-switch \
-            && chmod +x /usr/local/bin/theme-switch \
-            && printf '\n# Theme switch aliases\nalias light-mode="/usr/local/bin/theme-switch light"\nalias dark-mode="/usr/local/bin/theme-switch dark"\n' >> /home/ubuntu/.bashrc; \
-        fi; \
-    fi
-
-# ─── 6e. Language switch script (Chinese/English) ───────────────────────
-RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
-        if [ -f scripts/lang-switch.sh ]; then \
-            cp scripts/lang-switch.sh /usr/local/bin/lang-switch \
-            && chmod +x /usr/local/bin/lang-switch \
-            && printf '\n# Language switch aliases\nalias chinese="/usr/local/bin/lang-switch zh"\nalias english="/usr/local/bin/lang-switch en"\n' >> /home/ubuntu/.bashrc; \
-        fi; \
-    fi
-
 # ─── 7. VNC + noVNC ─────────────────────────────────────────────────
 RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
         apt-get update && apt-get install -y \

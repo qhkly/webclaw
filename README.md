@@ -379,7 +379,7 @@ docker compose down
 docker compose down -v
 
 # Restart a single service
-docker exec -it webcode supervisorctl restart theia
+docker exec -it webclaw supervisorctl restart code-server
 ```
 
 ---
@@ -391,7 +391,7 @@ Your data survives container restarts and updates — stored in Docker volumes:
 | Volume | What's stored |
 |--------|---------------|
 | `projects` | Your code (`/home/ubuntu/projects`) |
-| `theia-data` | Theia plugins and settings |
+| `code-server-data` | code-server settings and extensions |
 | `vibe-kanban-data` | Kanban task data |
 | `user-data` | Bash history and user data |
 | `openclaw-data` | OpenClaw config and data |
@@ -821,8 +821,8 @@ docker compose down
 # 停止并清除所有数据（慎用！）
 docker compose down -v
 
-# 重启单个服务（以 theia 为例）
-docker exec -it webcode supervisorctl restart theia
+# 重启单个服务（以 code-server 为例）
+docker exec -it webclaw supervisorctl restart code-server
 ```
 
 ---
@@ -834,7 +834,7 @@ docker exec -it webcode supervisorctl restart theia
 | 数据卷 | 内容 |
 |--------|------|
 | `projects` | 你的代码（`/home/ubuntu/projects`） |
-| `theia-data` | Theia 插件与设置 |
+| `code-server-data` | code-server 设置与扩展 |
 | `vibe-kanban-data` | Kanban 任务数据 |
 | `user-data` | bash 历史记录等用户数据 |
 | `openclaw-data` | OpenClaw 配置与数据 |
