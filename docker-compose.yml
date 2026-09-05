@@ -23,6 +23,7 @@ services:
       - user-data:/home/ubuntu/.local/share
       - gitconfig:/home/ubuntu/.gitconfig-vol
       - openclaw-data:/home/ubuntu/.openclaw
+      - dsh-data:/home/ubuntu/.dsh            # DeepSeek Harness（dsh）会话/凭证/配置
       - chrome-data:/home/ubuntu/.config
       - v2rayn-data:/home/ubuntu/.local/share/v2rayN
       - recordings:/home/ubuntu/recordings
@@ -50,6 +51,8 @@ services:
       - DNA_REPO_URL=${DNA_REPO_URL:-https://github.com/land007/webcode}
       - ENABLE_KANBAN=${ENABLE_KANBAN:-false}
       - ENABLE_OPENCLAW=${ENABLE_OPENCLAW:-true}
+      # DeepSeek Harness Web UI（dsh web，内端口 10012，经 20000/proxy/10012 访问）
+      - ENABLE_DEEPSEEK_HARNESS=${ENABLE_DEEPSEEK_HARNESS:-true}
       - ENABLE_CLAUDECODEUI=${ENABLE_CLAUDECODEUI:-false}
       # AI Studio 无头节点：开了之后本机的 WebCode AI Studio 可以把这个容器当成
       # 一台远程 Studio 接进去。走 20000 的统一代理，不额外开端口：
@@ -79,6 +82,7 @@ volumes:
   code-server-data:
   user-data:
   openclaw-data:
+  dsh-data:
   chrome-data:
   v2rayn-data:
   gitconfig:

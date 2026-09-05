@@ -132,6 +132,10 @@ RUN npm config set fetch-retries 5 && \
 # ─── 5c. Pre-install OpenClaw globally (易变，放最后避免破坏缓存) ─────
 RUN npm install -g openclaw@2026.5.7
 
+# ─── 5c-2. Pre-install DeepSeek Harness globally (易变，紧跟 OpenClaw) ─
+# dsh web 常驻服务见 configs/supervisor-deepseek-harness.conf（内端口 10012）。
+RUN npm install -g @deepseek-ai/dsh@0.1.2-rc.1
+
 # ─── 5d. sshfs：远程服务器目录挂载到本地做运维 ─────────────────────────
 # 放在 npm 层之后,避免让上面的 AI CLI 安装层缓存失效。
 # 运行时需要容器有 /dev/fuse + SYS_ADMIN(见 docker-compose.yml)。

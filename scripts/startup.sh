@@ -147,6 +147,11 @@ chown -R ubuntu:ubuntu /home/ubuntu/.code-server
 mkdir -p /home/ubuntu/.openclaw
 chown -R ubuntu:ubuntu /home/ubuntu/.openclaw
 
+# ─── DeepSeek Harness (dsh) data directory ──────────────────────────
+# $DSH_HOME 放会话/凭证/配置，落在 dsh-data 命名卷里跨容器持久化。
+mkdir -p /home/ubuntu/.dsh
+chown -R ubuntu:ubuntu /home/ubuntu/.dsh
+
 # ─── OpenClaw config ────────────────────────────────────────────────
 # OpenClaw reads openclaw.json (not openclaw.json5).
 # We need to ensure three things regardless of whether onboard has run:
@@ -203,7 +208,7 @@ if [ -f "$WEBCODE_CFG" ]; then
   echo "[startup] Loading persisted config from $WEBCODE_CFG"
   for KEY in AUTH_USER AUTH_PASSWORD VNC_PASSWORD OPENCLAW_GATEWAY_TOKEN \
              GIT_USER_NAME GIT_USER_EMAIL CF_TUNNEL_TOKEN \
-             ENABLE_KANBAN ENABLE_OPENCLAW ENABLE_CLAUDECODEUI \
+             ENABLE_KANBAN ENABLE_OPENCLAW ENABLE_CLAUDECODEUI ENABLE_DEEPSEEK_HARNESS \
              ENABLE_WEBCODE_STUDIOD AI_STUDIO_PEER_TOKEN AI_STUDIO_PEER_SCOPE; do
     VAL=$(python3 -c "
 import json,sys
@@ -248,6 +253,7 @@ export WEBCODE_HAS_VIBE_KANBAN="${WEBCODE_HAS_VIBE_KANBAN:-false}"
 export WEBCODE_HAS_CLAUDECODEUI="${WEBCODE_HAS_CLAUDECODEUI:-false}"
 export ENABLE_KANBAN="${ENABLE_KANBAN:-$WEBCODE_HAS_VIBE_KANBAN}"
 export ENABLE_OPENCLAW="${ENABLE_OPENCLAW:-true}"
+export ENABLE_DEEPSEEK_HARNESS="${ENABLE_DEEPSEEK_HARNESS:-true}"
 export ENABLE_CLAUDECODEUI="${ENABLE_CLAUDECODEUI:-$WEBCODE_HAS_CLAUDECODEUI}"
 export ENABLE_FUSE="${ENABLE_FUSE:-false}"
 
@@ -492,11 +498,12 @@ FCITX_PROFILE_EOF
             ! -name 'language.desktop' \
             ! -name 'v2rayN.desktop' \
             ! -name 'openclaw.desktop' \
+            ! -name 'deepseek-harness.desktop' \
             ! -name 'terminal.desktop' \
             ! -name 'claude-code.desktop' \
             -exec mv -f {} /home/ubuntu/.local/share/desktop-icons/hidden/ \; 2>/dev/null || true
         # Core shortcuts are part of every image, so they are always shown on first run.
-        for shortcut in openclaw claude-code v2rayN codex-cli webclaw-software-manager; do
+        for shortcut in openclaw deepseek-harness claude-code v2rayN codex-cli webclaw-software-manager; do
             cp "/opt/desktop-shortcuts/${shortcut}.desktop" /home/ubuntu/Desktop/ 2>/dev/null || true
         done
         # On-demand app shortcuts are only shown when their configured binary is installed.

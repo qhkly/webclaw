@@ -10,6 +10,7 @@ WEBCLAW_VOLUME_NAMES=(
     code-server-data
     user-data
     openclaw-data
+    dsh-data
     chrome-data
     v2rayn-data
     gitconfig

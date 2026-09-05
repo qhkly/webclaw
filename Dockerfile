@@ -343,6 +343,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_configs/supervisord-lite.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_configs/supervisor-code-server.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_configs/supervisor-openclaw.conf /etc/supervisor/conf.d/ \
+    && cp /tmp/_configs/supervisor-deepseek-harness.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_configs/supervisor-webtty.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_configs/supervisor-cloudflared.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_configs/supervisor-analytics.conf /etc/supervisor/conf.d/ \
@@ -358,9 +359,11 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/start-dashboard.sh /opt/start-dashboard.sh \
     && cp /tmp/_scripts/start-webtty.sh /opt/start-webtty.sh \
     && cp /tmp/_scripts/start-openclaw.sh /opt/start-openclaw.sh \
+    && cp /tmp/_scripts/start-deepseek-harness.sh /opt/start-deepseek-harness.sh \
     && cp /tmp/_scripts/start-webcode-studiod.sh /opt/start-webcode-studiod.sh \
     && cp /tmp/_scripts/start-ssh.sh /opt/start-ssh.sh \
     && cp /tmp/_scripts/openclaw-browser.sh /usr/local/bin/openclaw-browser \
+    && cp /tmp/_scripts/deepseek-harness-browser.sh /usr/local/bin/deepseek-harness-browser \
     && cp /tmp/_scripts/code-server-browser.sh /usr/local/bin/code-server-browser \
     && cp /tmp/_scripts/install-hermes.sh /opt/install-hermes.sh \
     && cp /tmp/_scripts/uninstall-hermes.sh /opt/uninstall-hermes.sh \
@@ -419,9 +422,10 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && chmod +x \
         /usr/local/bin/theme-switch /usr/local/bin/lang-switch \
         /usr/local/bin/desktop-language-picker /usr/local/bin/desktop-theme-picker \
-        /opt/start-dashboard.sh /opt/start-webtty.sh /opt/start-openclaw.sh /opt/start-ssh.sh \
+        /opt/start-dashboard.sh /opt/start-webtty.sh /opt/start-openclaw.sh /opt/start-deepseek-harness.sh /opt/start-ssh.sh \
         /opt/start-webcode-studiod.sh \
         /usr/local/bin/openclaw-browser /usr/local/bin/code-server-browser \
+        /usr/local/bin/deepseek-harness-browser \
         /opt/install-hermes.sh /opt/uninstall-hermes.sh /usr/local/bin/hermes-launcher \
         /opt/install-webcode-ai-studio.sh \
         /opt/uninstall-webcode-ai-studio.sh \

@@ -37,6 +37,7 @@ OpenClaw is a powerful open-source AI coding agent, but it needs direct access t
 | 💻 **code-server** | Browser-based VS Code to view and edit code anytime. |
 | 📊 **Vibe Kanban** | Visual task board for project management |
 | 🤖 **OpenClaw AI** | Self-hosted AI assistant gateway (supports multiple AI providers) |
+| 🐋 **DeepSeek Harness** | DeepSeek's plugin-based agent framework (`dsh` CLI + Web UI on the container desktop) |
 | 🖥️ **noVNC Desktop** | Full GNOME Flashback Linux desktop accessible via browser |
 | 🔒 **Sandboxed** | Complete isolation — AI cannot access your host files |
 
@@ -189,6 +190,7 @@ After startup, open **http://localhost:20000** — this is the unified dashboard
 | 💻 IDE (code-server) | http://localhost:20001 | `admin` / `changeme` |
 | 📊 Vibe Kanban | http://localhost:20002 | `admin` / `changeme` |
 | 🤖 OpenClaw AI | http://localhost:20003 | `admin` / `changeme` |
+| 🐋 DeepSeek Harness | Desktop icon in noVNC (`dsh web`, loopback-only by upstream design) | — |
 | 🖥️ noVNC Desktop | http://localhost:20004 | VNC password: `changeme` |
 | VNC client app | localhost:20005 | VNC password: `changeme` |
 
