@@ -21,16 +21,18 @@ export AI_STUDIO_DEV_PORT="${AI_STUDIO_DEV_PORT:-10010}"
 export AI_STUDIO_PEER_ENABLED="${AI_STUDIO_PEER_ENABLED:-1}"
 export AI_STUDIO_PEER_SCOPE="${AI_STUDIO_PEER_SCOPE:-lan}"
 
-# token 默认跟 AUTH_PASSWORD 取同一个值，这是整条链路能通的关键。
+# peer token 必须是 dashboard-server 也认得的那几个值之一，这是整条链路能通的关键。
 #
-# 请求要连过两道门：外层是 dashboard-server（认 `Bearer $AUTH_PASSWORD`，
-# WebSocket 那条认 `?token=$AUTH_PASSWORD`），内层是 studiod 自己的 peer token。
-# 而客户端只能带**一个** Authorization 头。两边取同一个值，一把钥匙开两道门；
-# 取不同值的话外层先 401，请求根本到不了 studiod。
+# 请求要连过两道门：外层是 dashboard-server（认 `Bearer $AUTH_PASSWORD` 或
+# `Bearer $OPENCLAW_GATEWAY_TOKEN`，也认同名的 `?token=`），内层是 studiod 自己的
+# peer token。而客户端只能带**一个** Authorization 头，两边必须是同一个值，
+# 一把钥匙开两道门；取别的值外层先 401，请求根本到不了 studiod。
 #
-# 真要分开管，就显式设 AI_STUDIO_PEER_TOKEN，同时把它加进 dashboard-server
-# 认得的 token 里——否则接不进来。
-export AI_STUDIO_PEER_TOKEN="${AI_STUDIO_PEER_TOKEN:-${AUTH_PASSWORD:-changeme}}"
+# launcher 建的容器一律显式下发 AI_STUDIO_PEER_TOKEN=$OPENCLAW_GATEWAY_TOKEN，
+# 走的就是这条。下面的 fallback 只对手工 docker run 有意义，而且注意：
+# AUTH_PASSWORD 在 launcher 生成的 compose 里是 `ENC:[...]` 密文（dashboard-server
+# 自己会解密，studiod 不会），所以那种场合别指望这个 fallback。
+export AI_STUDIO_PEER_TOKEN="${AI_STUDIO_PEER_TOKEN:-${OPENCLAW_GATEWAY_TOKEN:-${AUTH_PASSWORD:-changeme}}}"
 
 cd "$HOME"
 exec /usr/local/bin/webcode-studiod
