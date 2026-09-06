@@ -8,4 +8,4 @@ Name[pt_BR]=Navegador
 Name[ko_KR]=브라우저
 Name[de_DE]=Browser
 Exec=browser --no-sandbox %U
-Icon=/opt/desktop-icons/browser.svg
+Icon=browser

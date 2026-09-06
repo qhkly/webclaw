@@ -419,6 +419,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_configs/sudoers/webclaw-app-launcher /etc/sudoers.d/webclaw-app-launcher \
     && mkdir -p /usr/share/icons/WebClaw \
     && cp -r /tmp/_configs/icon-theme/WebClaw/. /usr/share/icons/WebClaw/ \
+    && cp -r /tmp/_configs/icon-theme/hicolor/. /usr/share/icons/hicolor/ \
     && chmod +x \
         /usr/local/bin/theme-switch /usr/local/bin/lang-switch \
         /usr/local/bin/desktop-language-picker /usr/local/bin/desktop-theme-picker \
@@ -501,6 +502,7 @@ RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
         && /tmp/_scripts/patch-novnc.sh \
         && python3 /tmp/_scripts/install-gnome-panel-labels.py \
         && (gtk-update-icon-cache -f -t /usr/share/icons/WebClaw 2>/dev/null || true) \
+        && (gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true) \
         && mkdir -p /usr/share/backgrounds/webclaw /usr/share/gnome-background-properties \
         && cp /tmp/_configs/backgrounds/webclaw-backgrounds.xml /usr/share/gnome-background-properties/webclaw-backgrounds.xml \
         && for background in $(sed -n 's|.*<filename>/usr/share/backgrounds/webclaw/\([^<]*\)</filename>.*|\1|p' /usr/share/gnome-background-properties/webclaw-backgrounds.xml); do \

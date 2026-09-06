@@ -2,6 +2,6 @@
 Name=Dockyard
 Name[zh_CN]=Dockyard Docker 管理器
 Exec=/usr/local/bin/webclaw-app-launcher dockyard
-Icon=/opt/on-demand-icons/dockyard.png
+Icon=dockyard
 Type=Application
 Categories=System;Utility;

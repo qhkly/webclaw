@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- DeepSeek Harness 应用图标：DeepSeek 品牌蓝圆角底 + 白色鲸尾 -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5B84FF"/>
+      <stop offset="1" stop-color="#4D6BFE"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bg)"/>
+  <path fill="#FFFFFF"
+        d="M66 28c-14 0-25 8-28 20-1 4-6 5-9 2-2-2-6-1-6 2 0 5 4 10 10 12-3 10-1 20 7 26 3 2 7 0 7-4v-2c-5-4-8-10-7-17 12 3 26 1 35-7 5-4 12-3 14 3 1 3 5 3 6 0 2-7-1-15-8-18 3-9-6-17-21-17zm-14 14a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm24 0a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/>
+</svg>

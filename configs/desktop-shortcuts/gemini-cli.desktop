@@ -14,7 +14,7 @@ Comment[pt_BR]=Google Gemini AI CLI
 Comment[ko_KR]=Google Gemini AI CLI
 Comment[de_DE]=Google Gemini AI CLI
 Exec=gnome-terminal --name="Gemini CLI" -- /usr/local/bin/gemini
-Icon=/opt/on-demand-icons/gemini-cli.svg
+Icon=gemini-cli
 Terminal=false
 Type=Application
 Categories=AITools;

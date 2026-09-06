@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="shell" x1="52" y1="28" x2="204" y2="228" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset=".52" stop-color="#f5f7fb"/>
+      <stop offset="1" stop-color="#dce3ef"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="12" stdDeviation="13" flood-color="#000" flood-opacity=".24"/>
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity=".16"/>
+    </filter>
+    <linearGradient id="red" x1="58" y1="50" x2="90" y2="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff6b74"/>
+      <stop offset="1" stop-color="#ff2d55"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="112" y1="50" x2="144" y2="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffd35a"/>
+      <stop offset="1" stop-color="#ff9500"/>
+    </linearGradient>
+    <linearGradient id="green" x1="166" y1="50" x2="198" y2="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#76f37b"/>
+      <stop offset="1" stop-color="#30d158"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="58" y1="104" x2="90" y2="146" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6ee7ff"/>
+      <stop offset="1" stop-color="#00c7be"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="112" y1="104" x2="144" y2="146" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#65a7ff"/>
+      <stop offset="1" stop-color="#0a84ff"/>
+    </linearGradient>
+    <linearGradient id="purple" x1="166" y1="104" x2="198" y2="146" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#bf8cff"/>
+      <stop offset="1" stop-color="#bf5af2"/>
+    </linearGradient>
+    <linearGradient id="pink" x1="58" y1="158" x2="90" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff8bd0"/>
+      <stop offset="1" stop-color="#ff375f"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="112" y1="158" x2="144" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8effe4"/>
+      <stop offset="1" stop-color="#32d4c8"/>
+    </linearGradient>
+    <linearGradient id="indigo" x1="166" y1="158" x2="198" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8ea7ff"/>
+      <stop offset="1" stop-color="#5e5ce6"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" fill="none"/>
+  <g filter="url(#shadow)">
+    <rect x="28" y="24" width="200" height="208" rx="48" fill="url(#shell)"/>
+    <path d="M57 39c26-12 116-13 143 0 17 8 24 23 26 45-9-19-22-31-43-36-37-8-74-8-110 0-21 5-34 17-43 36 2-22 10-37 27-45z" fill="#fff" opacity=".68"/>
+    <rect x="57" y="51" width="40" height="40" rx="10" fill="url(#red)"/>
+    <rect x="108" y="51" width="40" height="40" rx="10" fill="url(#orange)"/>
+    <rect x="159" y="51" width="40" height="40" rx="10" fill="url(#green)"/>
+    <rect x="57" y="105" width="40" height="40" rx="10" fill="url(#cyan)"/>
+    <rect x="108" y="105" width="40" height="40" rx="10" fill="url(#blue)"/>
+    <rect x="159" y="105" width="40" height="40" rx="10" fill="url(#purple)"/>
+    <rect x="57" y="159" width="40" height="40" rx="10" fill="url(#pink)"/>
+    <rect x="108" y="159" width="40" height="40" rx="10" fill="url(#teal)"/>
+    <rect x="159" y="159" width="40" height="40" rx="10" fill="url(#indigo)"/>
+    <path d="M67 57h18c-16 5-20 14-22 27V62c0-3 2-5 4-5zm51 54h18c-16 5-20 14-22 27v-22c0-3 2-5 4-5zm51 54h18c-16 5-20 14-22 27v-22c0-3 2-5 4-5z" fill="#fff" opacity=".35"/>
+  </g>
+</svg>

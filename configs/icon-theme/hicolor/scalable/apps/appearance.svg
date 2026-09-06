@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="46" y1="28" x2="216" y2="226" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff1a8"/>
+      <stop offset=".42" stop-color="#ff8a3d"/>
+      <stop offset="1" stop-color="#d83af5"/>
+    </linearGradient>
+    <linearGradient id="brush" x1="82" y1="70" x2="176" y2="184" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f1f4ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#35102d" flood-opacity=".28"/>
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity=".18"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" fill="none"/>
+  <g filter="url(#shadow)">
+    <rect x="28" y="24" width="200" height="208" rx="50" fill="url(#bg)"/>
+    <path d="M55 42c31-16 113-17 146-1 16 8 23 21 26 42-13-20-28-30-51-35-34-7-66-7-99 0-23 5-38 15-51 35 3-20 12-33 29-41z" fill="#fff" opacity=".36"/>
+    <path d="M80 151c26-4 43 12 40 37-3 23-25 35-54 34 17-17 9-31 14-71z" fill="#fff" opacity=".94"/>
+    <path d="M120 153 188 79c9-10 24-8 31 3 6 10 3 22-7 29l-83 58z" fill="url(#brush)"/>
+    <path d="M99 169c8-9 22-10 31-2s10 22 2 31-22 10-31 2-10-22-2-31z" fill="#2b2d42" opacity=".86"/>
+    <circle cx="75" cy="82" r="15" fill="#fff" opacity=".85"/>
+    <circle cx="99" cy="67" r="9" fill="#fff" opacity=".65"/>
+  </g>
+</svg>

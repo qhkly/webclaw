@@ -14,7 +14,7 @@ Comment[pt_BR]=Assistente de codificação AI Claude CLI
 Comment[ko_KR]=Claude AI 코딩 어시스턴트 CLI
 Comment[de_DE]=Claude AI-Coding-Assistent-CLI
 Exec=gnome-terminal --name="Claude Code" -- /usr/local/bin/claude
-Icon=/opt/on-demand-icons/claude-code.svg
+Icon=claude-code
 Terminal=false
 Type=Application
 Categories=AITools;
