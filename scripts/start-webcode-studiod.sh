@@ -34,5 +34,40 @@ export AI_STUDIO_PEER_SCOPE="${AI_STUDIO_PEER_SCOPE:-lan}"
 # 自己会解密，studiod 不会），所以那种场合别指望这个 fallback。
 export AI_STUDIO_PEER_TOKEN="${AI_STUDIO_PEER_TOKEN:-${OPENCLAW_GATEWAY_TOKEN:-${AUTH_PASSWORD:-changeme}}}"
 
+# 文件读写 / Git 这两项能力，ai-studio 上游刻意**不给**环境变量入口
+# （见 core/src/commands/peer_commands.rs 里 apply_server_env_overrides 的注释）：
+# 理由是「让对面读写这台机器上的文件」值得每次在界面上点头确认一次。
+#
+# 但那个前提在容器里不成立——无头节点根本没有界面可点，于是这两项永远开不了，
+# 桌面端那边「新建工程」「拖文件进对话」一律灰着，报「对方没有开启这项能力」。
+# 而且看风险：上面已经默认 AI_STUDIO_PEER_ENABLED=1，peer token 就是网关 token，
+# 能过这道门的人本来就能用 create-session 在这台机器上跑任意命令。在此之上再给
+# 文件读写，边际风险约等于零，挡住它只是让功能不可用而已。
+#
+# 所以这里播一份默认配置——这是**容器场景下的一次刻意例外**，不是推翻上游判断。
+# 只在文件不存在时写：那里面会存明文 peer token，已有的配置一个字都不能碰。
+PEERS_JSON="$AI_STUDIO_DATA_DIR/peers.json"
+if [ ! -e "$PEERS_JSON" ]; then
+  bool() { case "${1:-}" in 0|false|no) echo false;; *) echo true;; esac; }
+  # 先写临时文件设好权限再 rename，和 ai-studio 自己的 save_store() 一致：
+  # 直接写目标路径会出现一个短暂的 0644 窗口。
+  umask 077
+  cat > "$PEERS_JSON.tmp" <<JSON
+{
+  "peers": [],
+  "server": {
+    "enabled": true,
+    "accessMode": "lan-only",
+    "allowFiles": $(bool "${AI_STUDIO_PEER_ALLOW_FILES:-1}"),
+    "allowGit": $(bool "${AI_STUDIO_PEER_ALLOW_GIT:-1}")
+  }
+}
+JSON
+  chmod 600 "$PEERS_JSON.tmp"
+  mv "$PEERS_JSON.tmp" "$PEERS_JSON"
+  # enabled/accessMode 写不写都一样——真正生效的是上面那两个环境变量覆盖。
+  # 写进去只是让这个文件自己说得清自己是什么状态。
+fi
+
 cd "$HOME"
 exec /usr/local/bin/webcode-studiod
