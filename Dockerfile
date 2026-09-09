@@ -325,6 +325,48 @@ RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
         && apt-get clean && rm -rf /var/lib/apt/lists/*; \
     fi
 
+# ─── 11e. mihomo（无头代理内核，lite/desktop/full 都装）────────────────
+# 桌面版有 GUI 的 v2rayN，但它是 Avalonia 桌面程序，lite 模式没有 X 跑不起来。
+# v2rayN 的 TUN 模式底层用的就是 mihomo/sing-box，这里把 mihomo 单独装成
+# 无头常驻服务（见 scripts/start-proxy.sh），lite 模式也能拿到 TUN 级全局代理。
+# 选 mihomo 而不是 sing-box：它的 proxy-provider 内置 common/convert，能直接吃
+# base64 订阅和 vmess:// / vless:// / ss:// 分享链接，不需要我们自己写解析器。
+# 不加 INSTALL_DESKTOP 判断 —— lite 模式才是这个功能的主要使用场景。
+# 顺带装 metacubexd 网页面板（gh-pages 分支的构建产物，用相对路径，
+# 可以挂在 dashboard 的 /proxy/10013 子路径下）。
+RUN ARCH=$(dpkg --print-architecture) \
+    && case "$ARCH" in \
+        amd64) MIHOMO_ARCH=linux-amd64-compatible ;; \
+        arm64) MIHOMO_ARCH=linux-arm64 ;; \
+        *) echo "Unsupported mihomo architecture: $ARCH" >&2; exit 1 ;; \
+    esac \
+    && MIHOMO_RELEASE_JSON=/tmp/mihomo-release.json \
+    && curl -fsSL --retry 5 --retry-all-errors --retry-delay 3 \
+        -H 'Accept: application/vnd.github+json' \
+        -H 'User-Agent: webclaw-docker-build' \
+        https://api.github.com/repos/MetaCubeX/mihomo/releases/latest \
+        -o "$MIHOMO_RELEASE_JSON" \
+    && MIHOMO_VER=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["tag_name"])' "$MIHOMO_RELEASE_JSON") \
+    && MIHOMO_URL=$(python3 -c 'import json,sys,re; data=json.load(open(sys.argv[1])); arch=sys.argv[2]; pat=re.compile(r"^mihomo-"+re.escape(arch)+r"-v[0-9.]+\.gz$"); m=[a["browser_download_url"] for a in data.get("assets", []) if pat.match(a.get("name",""))]; print(m[0] if m else "")' "$MIHOMO_RELEASE_JSON" "$MIHOMO_ARCH") \
+    && test -n "$MIHOMO_VER" \
+    && test -n "$MIHOMO_URL" \
+    && echo "Installing mihomo ${MIHOMO_VER} (${MIHOMO_ARCH})" \
+    && mkdir -p /opt/mihomo \
+    && curl -fL --retry 5 --retry-all-errors --retry-delay 3 \
+        -H 'User-Agent: webclaw-docker-build' \
+        "$MIHOMO_URL" -o /tmp/mihomo.gz \
+    && gunzip -c /tmp/mihomo.gz > /opt/mihomo/mihomo \
+    && chmod +x /opt/mihomo/mihomo \
+    && echo "$MIHOMO_VER" > /opt/mihomo/VERSION \
+    && rm -f /tmp/mihomo.gz "$MIHOMO_RELEASE_JSON" \
+    && curl -fL --retry 5 --retry-all-errors --retry-delay 3 \
+        -H 'User-Agent: webclaw-docker-build' \
+        https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.tar.gz \
+        -o /tmp/metacubexd.tar.gz \
+    && mkdir -p /opt/mihomo/ui \
+    && tar -xzf /tmp/metacubexd.tar.gz -C /opt/mihomo/ui --strip-components=1 \
+    && rm -f /tmp/metacubexd.tar.gz
+
 # ─── 12. Config files (COPY last — most likely to change) ───────────
 COPY configs/ /tmp/_configs/
 COPY scripts/ /tmp/_scripts/
@@ -341,6 +383,7 @@ RUN mkdir -p /etc/fonts/conf.d \
 
 RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_configs/supervisord-lite.conf /etc/supervisor/conf.d/ \
+    && cp /tmp/_configs/supervisor-proxy.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_configs/supervisor-code-server.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_configs/supervisor-openclaw.conf /etc/supervisor/conf.d/ \
     && cp /tmp/_configs/supervisor-deepseek-harness.conf /etc/supervisor/conf.d/ \
@@ -360,6 +403,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/start-webtty.sh /opt/start-webtty.sh \
     && cp /tmp/_scripts/start-openclaw.sh /opt/start-openclaw.sh \
     && cp /tmp/_scripts/start-deepseek-harness.sh /opt/start-deepseek-harness.sh \
+    && cp /tmp/_scripts/start-proxy.sh /opt/start-proxy.sh \
     && cp /tmp/_scripts/start-webcode-studiod.sh /opt/start-webcode-studiod.sh \
     && cp /tmp/_scripts/start-ssh.sh /opt/start-ssh.sh \
     && cp /tmp/_scripts/openclaw-browser.sh /usr/local/bin/openclaw-browser \
@@ -409,6 +453,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/restore.sh /opt/restore.sh \
     && mkdir -p /opt/lib \
     && cp /tmp/_scripts/lib/volumes.sh /opt/lib/volumes.sh \
+    && cp /tmp/_scripts/lib/proxy-common.sh /opt/lib/proxy-common.sh \
     && cp /tmp/_scripts/lib/on-demand-core.sh /opt/lib/on-demand-core.sh \
     && cp /tmp/_scripts/snapshot.sh /opt/snapshot.sh \
     && cp /tmp/_scripts/snapshot-restore.sh /opt/snapshot-restore.sh \
@@ -424,6 +469,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /usr/local/bin/theme-switch /usr/local/bin/lang-switch \
         /usr/local/bin/desktop-language-picker /usr/local/bin/desktop-theme-picker \
         /opt/start-dashboard.sh /opt/start-webtty.sh /opt/start-openclaw.sh /opt/start-deepseek-harness.sh /opt/start-ssh.sh \
+        /opt/start-proxy.sh \
         /opt/start-webcode-studiod.sh \
         /usr/local/bin/openclaw-browser /usr/local/bin/code-server-browser \
         /usr/local/bin/deepseek-harness-browser \

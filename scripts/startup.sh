@@ -209,7 +209,8 @@ if [ -f "$WEBCODE_CFG" ]; then
   for KEY in AUTH_USER AUTH_PASSWORD VNC_PASSWORD OPENCLAW_GATEWAY_TOKEN \
              GIT_USER_NAME GIT_USER_EMAIL CF_TUNNEL_TOKEN \
              ENABLE_KANBAN ENABLE_OPENCLAW ENABLE_CLAUDECODEUI ENABLE_DEEPSEEK_HARNESS \
-             ENABLE_WEBCODE_STUDIOD AI_STUDIO_PEER_TOKEN AI_STUDIO_PEER_SCOPE; do
+             ENABLE_WEBCODE_STUDIOD AI_STUDIO_PEER_TOKEN AI_STUDIO_PEER_SCOPE \
+             ENABLE_PROXY PROXY_SUB_URL PROXY_RULE; do
     VAL=$(python3 -c "
 import json,sys
 try:
@@ -278,6 +279,41 @@ if [ -n "$PASSWORD" ]; then
         sed -i '/NOPASSWD/d' /etc/sudoers
         echo "[startup] Removed NOPASSWD from sudoers, password now required"
     fi
+fi
+
+# ─── Proxy (mihomo) ─────────────────────────────────────────────────
+# 代理配置的唯一真相是 ~/.webclaw/config.json（dashboard ⚙ 设置页写它，数据卷持久化），
+# 上面那段 KEY 循环已经把 ENABLE_PROXY / PROXY_SUB_URL / PROXY_RULE 读进环境了。
+# 刻意不提供 PROXY_* 环境变量入口：改订阅不该需要重建容器。
+#
+# 这里只做「开机就开着代理」这条路径：探测 TUN 能力，降级模式下给 supervisord
+# 注入 http_proxy —— 它的子进程（code-server / openclaw / dashboard）才继承得到。
+# 用户在网页里临时打开代理走的是另一条路径，由 start-proxy.sh 自己收尾。
+. /opt/lib/proxy-common.sh
+
+export ENABLE_PROXY="${ENABLE_PROXY:-false}"
+rm -f "$PROXY_ENV_FILE"
+
+if [ "$ENABLE_PROXY" = "true" ]; then
+    proxy_prepare_dir
+    PROXY_EFFECTIVE_MODE=$(proxy_detect_mode)
+    export PROXY_EFFECTIVE_MODE
+
+    if [ "$PROXY_EFFECTIVE_MODE" = "tun" ]; then
+        echo "[startup] Proxy: TUN 模式（全局透明，无需 http_proxy 环境变量）"
+        proxy_point_resolv_conf tun
+    else
+        echo "[startup] Proxy: 降级到 local 模式（mixed-port + http_proxy 环境变量）"
+        echo "[startup]        想要 TUN 级全局代理，容器需要 --device /dev/net/tun 和 --cap-add NET_ADMIN"
+        PROXY_URL="http://127.0.0.1:$PROXY_MIXED_PORT"
+        export http_proxy="$PROXY_URL" https_proxy="$PROXY_URL" all_proxy="$PROXY_URL"
+        export HTTP_PROXY="$PROXY_URL" HTTPS_PROXY="$PROXY_URL" ALL_PROXY="$PROXY_URL"
+        export no_proxy="$PROXY_NO_PROXY" NO_PROXY="$PROXY_NO_PROXY"
+    fi
+    proxy_write_env_file "$PROXY_EFFECTIVE_MODE"
+else
+    # 网页里随时可以打开，所以目录和 secret 先备好，省得开关一按还要等初始化。
+    proxy_prepare_dir
 fi
 
 # ─── Mode selection ─────────────────────────────────────────────────

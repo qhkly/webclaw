@@ -8,8 +8,12 @@ services:
     # sshfs 挂载远程服务器目录需要 FUSE：容器要能访问 /dev/fuse 并具备 SYS_ADMIN
     devices:
       - /dev/fuse
+      # 全局代理的 TUN 模式需要（在 dashboard ⚙ 里开关），缺了会自动降级到 http_proxy 模式
+      - /dev/net/tun
     cap_add:
       - SYS_ADMIN
+      # 同上：建 tun 设备、改路由表需要 CAP_NET_ADMIN
+      - NET_ADMIN
     security_opt:
       - apparmor:unconfined
       - seccomp=unconfined

@@ -645,6 +645,54 @@ docker compose up -d
 
 > **说明：** 如果同时通过 `webclaw-config` 数据卷和环境变量设置了同一项，数据卷中的值优先（运行时修改不会被容器重启覆盖）。
 
+### 全局代理 / 科学上网
+
+桌面版可以点开 v2rayN，但 lite 模式没有 X，v2rayN（Avalonia 桌面程序）根本起不来。
+容器里因此预装了 **mihomo（Clash.Meta）无头内核**——v2rayN 的 TUN 模式底层用的就是它，
+能力等价，只是没有界面，改用网页操作。三种镜像（lite / desktop / full）都有，默认关闭。
+
+**在网页里配置，没有环境变量**：打开 `http://<主机>:20000` → 右上角 ⚙ → 「网络代理」。
+订阅链接、分流规则、手贴节点、开关都在这里，保存后自动重启代理，**不需要重建容器**。
+配置落在 `webclaw-config` 数据卷（`~/.webclaw/config.json` 与 `~/.webclaw/proxy/nodes.txt`），
+容器重启后自动恢复。
+
+订阅两种给法，**可以同时用**：
+
+- **订阅链接**：base64 订阅、Clash YAML、分享链接聚合页都能直接吃（mihomo 自带订阅转换），
+  每小时自动更新一次；
+- **手动添加节点**：把 `vmess://` / `vless://` / `ss://` / `trojan://` / `hysteria2://`
+  一行一条贴进设置页的文本框即可（等同于编辑 `~/.webclaw/proxy/nodes.txt`，
+  在 code-server 里直接改这个文件也一样生效）。
+
+**两种工作模式，自动选：**
+
+| 模式 | 触发条件 | 效果 |
+|------|----------|------|
+| TUN（推荐） | 容器有 `/dev/net/tun` 且 `--cap-add NET_ADMIN` | 全局透明，容器内**所有**进程无感知走代理 |
+| 降级 | 上面任一条件不满足 | 只开 `127.0.0.1:7890`，靠注入的 `http_proxy` 环境变量生效 |
+
+差别不只是省事：**Node 20+ 的 `fetch`（undici）默认不读 `http_proxy`**，
+所以 Claude Code、OpenClaw 这类 Node 工具链在降级模式下是漏的，只有 TUN 模式能兜住。
+设置页的状态行会直接告诉你当前是哪种模式。`docker-compose.yml` 里已经带上了这两项权限；
+用 `docker run` 请自行加：
+
+```bash
+docker run --device /dev/net/tun --cap-add NET_ADMIN ...
+```
+
+> 降级模式下，**已经在跑的服务**（code-server / OpenClaw 等）拿不到新注入的环境变量，
+> 要重启容器才会全部走代理。TUN 模式没有这个问题，开关一按即刻全局生效。
+
+**节点面板**（切节点、看延迟和连接，相当于 v2rayN 主界面）在设置页里点「打开节点面板」，
+或直接访问 `http://<主机>:20000/proxy/10013/ui/`。它用的是容器自己生成的随机 secret
+（`~/.webclaw/proxy/secret`），设置页给出的链接已经带好了。
+
+> **分流** 默认「国内直连，国外走代理」：国内网站和私网直连，其余走节点，
+> npm / apt 的国内镜像不受影响。也可以切成全局代理，或在节点面板里临时切 global / rule / direct。
+
+> **和 `docs/transparent-proxy-technical-analysis.md` 不是一回事。** 那篇讲的是把容器流量
+> 强制锁进 OpenWrt 旁路由（管控用途），这里讲的是容器自己出网。
+
 ### AI Studio 无头节点（`ENABLE_WEBCODE_STUDIOD`）
 
 容器里预装了 `webcode-studiod`——WebCode AI Studio 的无头引擎。打开之后，你本机的

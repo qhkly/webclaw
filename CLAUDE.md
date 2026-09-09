@@ -113,6 +113,7 @@ Internal services bind to `127.0.0.1` only. The dashboard proxy listens on `0.0.
 | `configs/supervisor-vibe-kanban.conf` | Vibe Kanban process (port 10002) |
 | `configs/supervisor-openclaw.conf` | OpenClaw gateway process (port 10003, launched via npx) |
 | `configs/supervisor-deepseek-harness.conf` | DeepSeek Harness Web UI process (`dsh web`, port 10012, loopback-only) |
+| `configs/supervisor-proxy.conf` | mihomo headless proxy core — configured from the dashboard ⚙ page (`~/.webclaw/config.json` + `proxy/nodes.txt`, no env vars); TUN when `/dev/net/tun` + `NET_ADMIN` are present, otherwise falls back to `http_proxy`; API/panel on port 10013 |
 | `webclaw-dashboard-server@latest` | Dashboard + proxy server package (ports 20000-20004, handles authentication) |
 | `configs/supervisor-dashboard.conf` | Dashboard process configuration |
 | `configs/supervisord.conf` | Main supervisor config, includes noVNC (port 10004) and TigerVNC (port 10005) |
