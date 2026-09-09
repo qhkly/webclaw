@@ -13,6 +13,7 @@ const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = 10009;
@@ -69,6 +70,45 @@ const upload = multer({
 // 健康检查端点
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'clipboard-server' });
+});
+
+// 轻量变更探针：宿主同步循环每个 tick 先打这个端点，hash 没变就完全跳过
+// 拉取正文，避免每 500ms 把整张 PNG 传一遍（远程节点尤其吃带宽）。
+// 旧镜像没有这个路由，宿主侧收到 404 会自动回落到全量拉取。
+function xclipBuffer(target) {
+  return new Promise((resolve) => {
+    const child = spawn('xclip', ['-selection', 'clipboard', '-target', target, '-o']);
+    const chunks = [];
+    child.stdout.on('data', (b) => chunks.push(b));
+    child.stderr.on('data', () => {});
+    child.on('error', () => resolve(null));
+    child.on('close', (code) => {
+      if (code !== 0 || chunks.length === 0) return resolve(null);
+      resolve(Buffer.concat(chunks));
+    });
+  });
+}
+
+app.get('/api/clipboard-meta', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  try {
+    const targetsBuf = await xclipBuffer('TARGETS');
+    const targets = targetsBuf ? targetsBuf.toString('utf8') : '';
+    // 与 GET /api/clipboard-text 保持同一判定顺序：有图就按图算。
+    const target = /image\//i.test(targets) ? 'image/png' : 'UTF8_STRING';
+    const buf = await xclipBuffer(target);
+    if (!buf) {
+      return res.json({ kind: 'empty', size: 0, hash: '' });
+    }
+    res.json({
+      kind: target === 'image/png' ? 'image' : 'text',
+      size: buf.length,
+      hash: crypto.createHash('sha1').update(buf).digest('hex')
+    });
+  } catch (error) {
+    console.error('[clipboard] meta 读取失败:', error);
+    res.status(500).json({ error: '读取剪贴板元信息失败', code: 'XCLIP_ERROR' });
+  }
 });
 
 // 文本剪贴板 API：作为 noVNC 原生 clipboard 通道的兜底。

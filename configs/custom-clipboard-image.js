@@ -39,7 +39,10 @@
       text_clipboard_blocked: '文本已到 noVNC 剪贴板面板，浏览器未授权写入本地剪贴板',
       text_pasted_to_container: '✓ 文字已粘到容器',
       no_content_local: '本地剪贴板没有内容',
-      no_content_container: '容器剪贴板没有内容'
+      no_content_container: '容器剪贴板没有内容',
+      manual_paste_title: '按 Ctrl+V 粘贴到下方输入框',
+      manual_paste_hint: '当前页面不是 HTTPS 或 localhost，浏览器不允许直接读取剪贴板。',
+      manual_paste_cancel: '取消'
     },
     'en': {
       btn_mac_to_container: 'Paste',
@@ -62,7 +65,10 @@
       text_clipboard_blocked: 'Text is in the noVNC clipboard panel. Browser permission blocked local clipboard write',
       text_pasted_to_container: '✓ Text pasted to container',
       no_content_local: 'No content in local clipboard',
-      no_content_container: 'No content in container clipboard'
+      no_content_container: 'No content in container clipboard',
+      manual_paste_title: 'Press Ctrl+V into the box below',
+      manual_paste_hint: 'This page is not HTTPS or localhost, so the browser will not let us read the clipboard directly.',
+      manual_paste_cancel: 'Cancel'
     }
   };
   const T = (navigator.language || 'en').toLowerCase().startsWith('zh') ? I18N.zh : I18N.en;
@@ -198,18 +204,110 @@
     setTimeout(clearClipboardImagePathFromPanel, 300);
   }
 
+  // execCommand('copy') still works outside a secure context, which is where
+  // navigator.clipboard is undefined (plain http://<ip>:20004 access).
+  function writeTextViaExecCommand(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch (err) {
+      console.warn('[clipboard] execCommand copy failed:', err && err.message);
+    }
+    document.body.removeChild(ta);
+    return copied;
+  }
+
   async function writeTextToMacClipboard(text) {
-    if (!text || isClipboardImagePath(text) || !navigator.clipboard || !navigator.clipboard.writeText) {
+    if (!text || isClipboardImagePath(text)) {
       return false;
     }
-    try {
-      await navigator.clipboard.writeText(text);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        lastTextCopiedToMac = text;
+        return true;
+      } catch (err) {
+        console.warn('[clipboard] text write to Mac clipboard blocked:', err && err.message);
+      }
+    }
+    if (writeTextViaExecCommand(text)) {
       lastTextCopiedToMac = text;
       return true;
-    } catch (err) {
-      console.warn('[clipboard] text write to Mac clipboard blocked:', err && err.message);
-      return false;
     }
+    return false;
+  }
+
+  function canReadHostClipboard() {
+    return !!(navigator.clipboard && navigator.clipboard.readText && window.isSecureContext);
+  }
+
+  // Reading the clipboard is impossible outside a secure context, so ask the
+  // user to paste into a focused box and take the text off the paste event.
+  function promptManualPaste() {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.55);'
+        + 'display:flex;align-items:center;justify-content:center;';
+
+      const panel = document.createElement('div');
+      panel.style.cssText = 'background:#1e1e1e;color:#eee;padding:18px 20px;border-radius:10px;'
+        + 'width:min(460px,90vw);font:14px/1.5 system-ui,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,.5)';
+
+      const title = document.createElement('div');
+      title.textContent = T.manual_paste_title;
+      title.style.cssText = 'font-weight:600;margin-bottom:6px';
+
+      const hint = document.createElement('div');
+      hint.textContent = T.manual_paste_hint;
+      hint.style.cssText = 'opacity:.7;font-size:12.5px;margin-bottom:12px';
+
+      const input = document.createElement('textarea');
+      input.rows = 4;
+      input.style.cssText = 'width:100%;box-sizing:border-box;background:#111;color:#eee;'
+        + 'border:1px solid #444;border-radius:6px;padding:8px;font:13px monospace;resize:vertical';
+
+      const cancel = document.createElement('button');
+      cancel.textContent = T.manual_paste_cancel;
+      cancel.style.cssText = 'margin-top:12px;padding:6px 14px;border-radius:6px;border:1px solid #555;'
+        + 'background:transparent;color:#eee;cursor:pointer';
+
+      panel.append(title, hint, input, cancel);
+      overlay.appendChild(panel);
+      document.body.appendChild(overlay);
+      input.focus();
+
+      let settled = false;
+      const close = (value) => {
+        if (settled) return;
+        settled = true;
+        overlay.remove();
+        resolve(value);
+      };
+
+      // Capture phase so the document-level paste bridge does not also fire.
+      input.addEventListener('paste', (event) => {
+        event.stopPropagation();
+        const text = event.clipboardData && event.clipboardData.getData('text/plain');
+        if (text) {
+          event.preventDefault();
+          close(text);
+        }
+      }, true);
+      input.addEventListener('keydown', (event) => {
+        event.stopPropagation();
+        if (event.key === 'Escape') close(null);
+      }, true);
+      cancel.addEventListener('click', () => close(null));
+      overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) close(null);
+      });
+    });
   }
 
   function sendTextToContainerClipboard(text) {
@@ -410,7 +508,9 @@
             return;
           }
 
-          const text = await navigator.clipboard.readText();
+          const text = canReadHostClipboard()
+            ? await navigator.clipboard.readText()
+            : await promptManualPaste();
           if (text && text.trim()) {
             const keyName = e.shiftKey ? 'Ctrl+Shift+V' : 'Ctrl+V';
             console.log('[clipboard] ' + keyName + ' detected, syncing Mac clipboard: ' + text.substring(0, 30));

@@ -72,7 +72,7 @@ Mac 系统剪贴板
 | 组件 | 文件路径 | 端口 | 作用 |
 |------|----------|------|------|
 | 前端剪贴板桥 | `/opt/noVNC/custom-clipboard-image.js` | - | 监听按键/RFB 事件，调用剪贴板 API |
-| 剪贴板服务 | `/opt/clipboard-server.js` | 10009 | 提供 X11 剪贴板读写 API |
+| 剪贴板服务 | `/opt/clipboard-server.js` | 10009 | 提供 X11 剪贴板读写 API + 变更探针 |
 | 反向代理 | `webclaw-dashboard-server` (npm 包) | 20000 | 代理 /proxy/10009/* 到容器 10009 |
 | X11 剪贴板工具 | `/usr/bin/xclip` | - | 读写容器 X11 剪贴板 |
 
@@ -93,6 +93,25 @@ GET /api/clipboard-text
   "text": "剪贴板内容"
 }
 ```
+
+### GET /api/clipboard-meta
+
+轻量变更探针。宿主同步循环每个 tick 先打这个端点，`hash` 未变化就完全跳过
+拉取正文，避免每 500ms 把整张 PNG 传一遍（远程节点尤其吃带宽）。
+
+**响应**：
+```json
+{
+  "kind": "text",
+  "size": 42,
+  "hash": "sha1 十六进制"
+}
+```
+
+`kind` 取值为 `text` / `image` / `empty`，判定顺序与 `GET /api/clipboard-text`
+一致（剪贴板里有图就按图算）。
+
+旧镜像没有这个路由，宿主侧收到 404 后会自动停止探测并回落到全量拉取。
 
 ### POST /api/clipboard-text
 
@@ -142,11 +161,18 @@ Content-Type: application/json
 - 尝试调用 `readText()` 测试实际权限
 - 如果不可用：静默失败，不初始化任何剪贴板功能
 
-**静默失败行为**：
-- ✗ 不显示任何用户界面提示
+**非安全上下文的兜底**：
+
+`navigator.clipboard` 在非安全上下文下不存在，但两个方向都还有退路：
+
+- **写入宿主剪贴板**：回落到隐藏 `<textarea>` + `document.execCommand('copy')`，
+  这个 API 在非安全上下文下仍然可用。
+- **读取宿主剪贴板**：无法绕过，改为弹出「手动粘贴框」——用户 Ctrl+V 进去后，
+  从 `paste` 事件的 `clipboardData` 取文本，再走正常的同步流程。
+
+**仍然静默失败的部分**：
 - ✓ 控制台记录警告日志：`[clipboard] ⚠️ 剪贴板 API 不可用，需要 HTTPS 或 localhost 访问`
-- ✓ 文本剪贴板桥不启用
-- ✓ 图片剪贴板按钮不显示
+- ✓ 图片方向没有兜底（`navigator.clipboard.read()` 无替代）
 - ✓ 用户刷新页面（如配置了 HTTPS 后）可重新检测
 
 ### 事件驱动架构
