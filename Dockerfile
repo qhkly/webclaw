@@ -332,8 +332,9 @@ RUN if [ "$INSTALL_DESKTOP" = "true" ]; then \
 # 选 mihomo 而不是 sing-box：它的 proxy-provider 内置 common/convert，能直接吃
 # base64 订阅和 vmess:// / vless:// / ss:// 分享链接，不需要我们自己写解析器。
 # 不加 INSTALL_DESKTOP 判断 —— lite 模式才是这个功能的主要使用场景。
-# 顺带装 metacubexd 网页面板（gh-pages 分支的构建产物，用相对路径，
-# 可以挂在 dashboard 的 /proxy/10013 子路径下）。
+# 只装内核，不装 metacubexd 那类网页面板：它们的 API 地址只能由 hostname:port 拼出来，
+# 没法挂在 dashboard 的 /proxy/10013 路径前缀下。切节点的界面做在 dashboard 里，
+# 由它在服务端直连 127.0.0.1:10013，浏览器不碰内核 API。
 RUN ARCH=$(dpkg --print-architecture) \
     && case "$ARCH" in \
         amd64) MIHOMO_ARCH=linux-amd64-compatible ;; \
@@ -358,14 +359,7 @@ RUN ARCH=$(dpkg --print-architecture) \
     && gunzip -c /tmp/mihomo.gz > /opt/mihomo/mihomo \
     && chmod +x /opt/mihomo/mihomo \
     && echo "$MIHOMO_VER" > /opt/mihomo/VERSION \
-    && rm -f /tmp/mihomo.gz "$MIHOMO_RELEASE_JSON" \
-    && curl -fL --retry 5 --retry-all-errors --retry-delay 3 \
-        -H 'User-Agent: webclaw-docker-build' \
-        https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.tar.gz \
-        -o /tmp/metacubexd.tar.gz \
-    && mkdir -p /opt/mihomo/ui \
-    && tar -xzf /tmp/metacubexd.tar.gz -C /opt/mihomo/ui --strip-components=1 \
-    && rm -f /tmp/metacubexd.tar.gz
+    && rm -f /tmp/mihomo.gz "$MIHOMO_RELEASE_JSON"
 
 # ─── 12. Config files (COPY last — most likely to change) ───────────
 COPY configs/ /tmp/_configs/

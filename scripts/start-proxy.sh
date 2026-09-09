@@ -19,18 +19,16 @@ set -euo pipefail
 #            连 Node 的 fetch（undici 默认不读 http_proxy）也覆盖得到。
 #   local —— 没权限时的降级：只开 mixed-port 7890，靠 http_proxy 环境变量生效。
 #
-# 端口：external-controller + 网页面板走 10013。10001-10012 已被占用，
-# 10013 仍在 dashboard 的 10001-10100 统一代理窗口内，
-# 可经 http://<host>:20000/proxy/10013/ui/ 访问。
+# 端口：external-controller 走 10013（10001-10012 已被占用）。只监听回环，
+# 由 dashboard 在服务端调用；切节点的界面在 dashboard 的「节点列表」弹窗里。
 
 . /opt/lib/proxy-common.sh
 
 MIHOMO_BIN="${MIHOMO_BIN:-/opt/mihomo/mihomo}"
-MIHOMO_UI="${MIHOMO_UI:-/opt/mihomo/ui}"
+# external-controller 只给 dashboard 服务端用（它拿 secret 直连 127.0.0.1:10013），
+# 不配 external-ui：内核自带的那些网页面板只能按 hostname:port 拼 API 地址，
+# 挂不到 dashboard 的 /proxy/10013 路径前缀下。切节点的界面做在 dashboard 里。
 PROXY_API_PORT="${PROXY_API_PORT:-10013}"
-# mihomo 只允许读取 -d 工作目录下的路径，面板装在 /opt/mihomo/ui 属于目录外，
-# 不显式放行会直接 fatal: "path is not subpath of home directory or SAFE_PATHS"
-export SAFE_PATHS="${SAFE_PATHS:-$MIHOMO_UI}"
 
 log() { echo "[proxy] $*"; }
 
@@ -179,7 +177,6 @@ CONFIG="$PROXY_DIR/config.yaml"
     echo "log-level: info"
     echo "external-controller: 127.0.0.1:$PROXY_API_PORT"
     echo "secret: \"$PROXY_SECRET\""
-    [ -d "$MIHOMO_UI" ] && echo "external-ui: $MIHOMO_UI"
     # geo 数据首次启动要现下，而这时候代理还没生效 —— 默认源在国内基本拉不动，
     # 拉不到 mihomo 会直接 fatal。所以固定用 jsdelivr 的国内可达镜像。
     echo "geodata-mode: false"
