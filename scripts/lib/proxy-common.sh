@@ -28,6 +28,12 @@ except Exception:
 # 配置目录。属主给 ubuntu：dashboard（以 ubuntu 运行）要写 nodes.txt，
 # 用户也要能在 code-server 里直接编辑。
 proxy_prepare_dir() {
+    # 父目录（~/.webclaw）显式过一遍并归给 ubuntu。install -d 的 -o/-g 只作用在
+    # 最后一级，中间层会留成 root:root 755；而 .webclaw 作为空 docker 卷挂进来时
+    # 也是 root:root 755。两种情况都会让以 ubuntu 运行的 webcode-studiod 建不了
+    # 自己的 .webclaw/ai-studio（见 start-webcode-studiod.sh），10010 起不来，
+    # 外面看到的就是 502。对已存在的目录这一行同样会纠正属主。
+    install -d -o ubuntu -g ubuntu -m 755 "$(dirname "$PROXY_DIR")"
     install -d -o ubuntu -g ubuntu -m 775 "$PROXY_DIR"
     if [ ! -e "$PROXY_DIR/nodes.txt" ]; then
         cat > "$PROXY_DIR/nodes.txt" <<'NODESTXT'

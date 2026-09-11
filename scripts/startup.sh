@@ -202,6 +202,12 @@ EOF
 fi
 chown ubuntu:ubuntu "$OPENCLAW_JSON"
 
+# ─── Shared config dir ──────────────────────────────────────────────
+# ~/.webclaw 下面住着 config.json、proxy/、ai-studio/，写它的进程（dashboard、
+# webcode-studiod）都以 ubuntu 身份跑。这里必须早于 supervisord 归位一次：
+# 作为空卷挂进来时它是 root:root，webcode-studiod 就建不了自己的子目录。
+install -d -o ubuntu -g ubuntu -m 755 /home/ubuntu/.webclaw
+
 # ─── Load persisted runtime config (overrides docker run env vars) ───
 WEBCODE_CFG=/home/ubuntu/.webclaw/config.json
 if [ -f "$WEBCODE_CFG" ]; then
