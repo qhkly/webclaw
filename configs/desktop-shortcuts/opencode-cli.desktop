@@ -13,7 +13,7 @@ Comment[es_ES]=Agente de programación AI de código abierto CLI
 Comment[pt_BR]=Agente de codificação AI de código aberto CLI
 Comment[ko_KR]=오픈 소스 AI 코딩 에이전트 CLI
 Comment[de_DE]=Open-Source-AI-Coding-Agent-CLI
-Exec=gnome-terminal --name="OpenCode CLI" -- /usr/local/bin/opencode
+Exec=gnome-terminal --name="OpenCode CLI" -- /usr/local/bin/webclaw-user-node-run opencode
 Icon=opencode
 Terminal=false
 Type=Application

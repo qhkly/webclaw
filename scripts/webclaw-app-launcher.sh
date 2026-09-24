@@ -10,24 +10,27 @@
 #
 # 支持的 install_method:
 #   - "github_release" (默认): 从 .github_repo 拿最新 release,按 .asset_pattern + .arch_map
-#                              下载 .deb 到 /tmp/webclaw-ondemand-<id>.deb,sudo apt-get install
-#   - "apt":                   直接 sudo apt-get update && sudo apt-get install -y <apt_package>
+#                              由 broker 以 root 按 manifest 下载 .deb 并安装
+#   - "apt":                   broker 执行 apt-get update && apt-get install -y <apt_package>
 #                              (适合本来就在 apt 仓库的包,如 VS Code)
 #   - "appimage":              从 GitHub 下载 AppImage,解压到 /opt/ondemand-apps/<id>/AppDir
 #   - "r2_download":           从自定义 R2 API 下载 zip 包,解压安装到指定目录
 #   - "direct_download":       从直接 URL 下载 AppImage,解压安装到指定目录
 #   - "cursor_api":            从 Cursor 官方 API 下载 AppImage (支持 AMD64/ARM64)
 #
-# sudo 授权由 /etc/sudoers.d/webclaw-app-launcher 提供:
-#   - apt-get install -y /tmp/webclaw-ondemand-*.deb (固定路径前缀)
-#   - apt-get update
-#   - 每个 apt 模式应用各自的 apt-get install -y <pkg> 白名单
+# 需要 root 的动作一律走 /usr/local/bin/webclaw-app-admin（sudoers 只放行它）:
+#   调用方只传「动作 + app_id」，源/目标路径、包名都由 broker 根据 root 所有的
+#   manifest 推导。下载/解压仍以 ubuntu 身份在 /tmp 完成，然后:
+#   - .deb 不经 launcher：admin deb-install <id> 由 root 按 manifest 自己下载并安装
+#   - 解压结果放到 /tmp/webclaw-stage-<id>     → admin install-tree <id> appdir|flat|binary
 
 set -u
 set -o pipefail
 
 # shellcheck source=lib/on-demand-core.sh
 source "${WEBCLAW_LIB_DIR:-/opt/lib}/on-demand-core.sh"
+
+admin() { sudo -n /usr/local/bin/webclaw-app-admin "$@"; }
 
 # ─── 自动检测 DISPLAY（桌面环境可能未传递此变量）────────────
 if [ -z "${DISPLAY:-}" ]; then
@@ -77,9 +80,7 @@ INSTALL_METHOD=$(jq -r '.install_method // "github_release"' "$MANIFEST")
 REQUIRES_TERMINAL=$(jq -r '.requires_terminal // "false"' "$MANIFEST")
 
 prepare_log() {
-    if [ -x /usr/local/bin/webclaw-log-prepare ]; then
-        sudo /usr/local/bin/webclaw-log-prepare "$APP_ID" >/dev/null 2>&1 || true
-    fi
+    admin log-prepare "$APP_ID" >/dev/null 2>&1 || true
 
     if [ ! -e "$LOG" ]; then
         : > "$LOG" 2>/dev/null || true
@@ -167,6 +168,14 @@ download_with_progress() {
     return 0
 }
 
+# 把 ubuntu 在 /tmp 准备好的安装内容交给 broker 的固定暂存位置。
+stage_for_install() {
+    local stage="/tmp/webclaw-stage-${APP_ID}"
+    rm -rf -- "$stage"
+    chmod -R a+rX -- "$1" 2>>"$LOG" || true
+    mv -T -- "$1" "$stage" 2>>"$LOG"
+}
+
 get_github_latest_tag() {
     local repo="$1"
     local tag=""
@@ -207,7 +216,7 @@ if [ "$ACTION" = "uninstall" ]; then
     if ! {
         echo "20"
         echo "# 正在卸载 $NAME..."
-        if ! sudo /usr/local/bin/webclaw-app-uninstaller "$APP_ID" >>"$LOG" 2>&1; then
+        if ! admin uninstall "$APP_ID" >>"$LOG" 2>&1; then
             echo "100"; exit 1
         fi
         echo "90"
@@ -255,7 +264,8 @@ if is_app_installed; then
     export XMODIFIERS=${XMODIFIERS:-@im=fcitx}
 
     if [ "$REQUIRES_TERMINAL" = "true" ]; then
-        sudo -u ubuntu DISPLAY="$DISPLAY" \
+        # launcher 本来就以 ubuntu 运行，不需要（也不再允许）sudo -u ubuntu。
+        env DISPLAY="$DISPLAY" \
             GTK_IM_MODULE="$GTK_IM_MODULE" \
             QT_IM_MODULE="$QT_IM_MODULE" \
             XMODIFIERS="$XMODIFIERS" \
@@ -287,11 +297,11 @@ case "$INSTALL_METHOD" in
         INSTALL_SCRIPT=$(jq -r '.install_script // empty' "$MANIFEST")
 
         # 如果有预安装脚本(如添加 apt 仓库),先执行
-        if [ -n "$INSTALL_SCRIPT" ] && [ -x "$INSTALL_SCRIPT" ]; then
+        if [ -n "$INSTALL_SCRIPT" ]; then
             {
                 echo "5"
                 echo "# 正在准备安装环境..."
-                if ! sudo "$INSTALL_SCRIPT" >>"$LOG" 2>&1; then
+                if ! admin apt-prepare "$APP_ID" >>"$LOG" 2>&1; then
                     echo "安装脚本执行失败" >> "$LOG"
                     echo "100"; exit 1
                 fi
@@ -305,28 +315,13 @@ case "$INSTALL_METHOD" in
 
         {
             echo "40"
-            echo "# 正在刷新 apt 索引..."
-            if ! sudo /usr/bin/apt-get update >>"$LOG" 2>&1; then
-                echo "apt-get update 失败" >> "$LOG"
-                echo "100"; exit 1
-            fi
-
-            echo "60"
             echo "# 正在安装 $NAME ($APT_PKG)..."
-            # Wireshark 需要预配置 debconf 避免交互提示
-            if [ "$APT_PKG" = "wireshark" ]; then
-                echo "wireshark-common wireshark-common/setuid boolean true" | sudo debconf-set-selections >>"$LOG" 2>&1
-            fi
-            if ! sudo /usr/bin/apt-get install -y "$APT_PKG" >>"$LOG" 2>&1; then
-                echo "apt-get install $APT_PKG 失败" >> "$LOG"
+            # broker 内部完成 apt-get update、Wireshark 的 debconf 预配置、
+            # apt-get install <manifest 声明的包>、以及安装后置钩子。
+            if ! admin apt-install "$APP_ID" >>"$LOG" 2>&1; then
+                echo "apt 安装 $APT_PKG 失败" >> "$LOG"
                 echo "100"; exit 1
             fi
-
-            # 安装后置钩子: 委托给受控的 root-side 脚本, 按 app_id 分发
-            # (例如 Wireshark 需要 groupadd / usermod / setcap)
-            echo "70"
-            echo "# 正在配置..."
-            sudo /usr/local/bin/webclaw-app-postinstall "$APP_ID" >>"$LOG" 2>&1 || true
 
             echo "100"
             echo "# 完成"
@@ -338,58 +333,28 @@ case "$INSTALL_METHOD" in
 
     github_release)
         # ─── GitHub release 下 .deb 装(OpenTypeless / CC Switch 等) ──
-        REPO=$(jq -r '.github_repo' "$MANIFEST")
-        ASSET_PATTERN=$(jq -r '.asset_pattern' "$MANIFEST")
+        # .deb 的 maintainer script 以 root 运行，所以下载也必须由 root broker 自己做：
+        # 它按 root 所有的 manifest 推导 GitHub 地址、下载到私有目录、校验 Package 后安装。
+        # launcher 不再下载/传递 .deb。
         ARCH=$(dpkg --print-architecture)
-        ARCH_VAR=$(jq -r --arg a "$ARCH" '.arch_map[$a] // empty' "$MANIFEST")
-        if [ -z "$ARCH_VAR" ]; then
+        if [ -z "$(jq -r --arg a "$ARCH" '.arch_map[$a] // empty' "$MANIFEST")" ]; then
             zenity --error --title="$NAME" --text="不支持的架构: $ARCH" --width=320
             exit 1
         fi
 
         {
-            VERSION=""
-            if [ "$(jq -r '.use_fixed_version // false' "$MANIFEST")" = "true" ]; then
-                VERSION=$(jq -r '.version // empty' "$MANIFEST")
-                echo "5"
-                echo "# 使用指定版本 $VERSION..."
-            else
-                echo "5"
-                echo "# 正在查询最新版本..."
-                VERSION=$(get_github_latest_tag "$REPO")
-            fi
-            if [ -z "$VERSION" ]; then
-                echo "无法获取最新版本号" >> "$LOG"
+            echo "10"
+            echo "# 正在下载并安装 $NAME..."
+            if ! admin deb-install "$APP_ID" >>"$LOG" 2>&1; then
+                echo "下载或安装失败" >> "$LOG"
                 echo "100"; exit 1
             fi
-
-            VERSION_NO_V="${VERSION#v}"
-            ASSET=${ASSET_PATTERN//\{version_no_v\}/$VERSION_NO_V}
-            ASSET=${ASSET//\{version\}/$VERSION}
-            ASSET=${ASSET//\{arch\}/$ARCH_VAR}
-            URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET}"
-            DEB="/tmp/webclaw-ondemand-${APP_ID}.deb"
-
-            rm -f "$DEB"
-            if ! download_with_progress "$URL" "$DEB" 15 60 "正在下载 $NAME v$VERSION (${ARCH_VAR})"; then
-                echo "100"; exit 1
-            fi
-
-            echo "65"
-            echo "# 正在安装 .deb 包..."
-            if ! sudo /usr/bin/apt-get install -y "$DEB" >>"$LOG" 2>&1; then
-                echo "apt-get install 失败" >> "$LOG"
-                rm -f "$DEB"
-                echo "100"; exit 1
-            fi
-
-            rm -f "$DEB"
             echo "100"
             echo "# 完成"
-        } | zenity --progress \
+        } | zenity --progress --pulsate \
             --title="安装 $NAME" \
             --text="准备中..." \
-            --percentage=0 --auto-close --no-cancel --width=420
+            --auto-close --no-cancel --width=420
         ;;
 
     appimage)
@@ -407,7 +372,6 @@ case "$INSTALL_METHOD" in
         # AppImage 解压目录
         APPIMAGE_EXTRACT_DIR="/opt/ondemand-apps/${APP_ID}"
         APPIMAGE_TMP="/tmp/webclaw-ondemand-${APP_ID}.AppImage"
-        sudo /bin/mkdir -p "$APPIMAGE_EXTRACT_DIR" 2>>"$LOG"
 
         {
             echo "5"
@@ -425,7 +389,6 @@ case "$INSTALL_METHOD" in
             URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ASSET}"
 
             rm -f "$APPIMAGE_TMP"
-            rm -rf "$APPIMAGE_EXTRACT_DIR"
             if ! download_with_progress "$URL" "$APPIMAGE_TMP" 15 40 "正在下载 $NAME v$VERSION"; then
                 echo "100"; exit 1
             fi
@@ -448,26 +411,23 @@ case "$INSTALL_METHOD" in
             # 必须解到真实目录,否则后面 mv 走的是 symlink 本身、留下孤儿 AppDir
             EXTRACTED=$(readlink -f /tmp/squashfs-root)
 
-            # 可选: 把 AppImage 自带的旧 Mesa GL 库替换为系统 Mesa 的符号链接,
+            # 可选: 把 AppImage 自带的旧 Mesa GL 库挪开,改用系统 Mesa,
             # 解决 pkgforge 的 anylinux.so 劫持 dlopen 强制加载老 GL 导致 GTK4
-            # 应用(如 Ghostty)只能拿到 OpenGL 3.3、达不到 4.3+ 要求的问题
+            # 应用(如 Ghostty)只能拿到 OpenGL 3.3、达不到 4.3+ 要求的问题。
+            # 这里只挪开自带库;指向系统 Mesa 的链接要出安装树,broker 不接受用户提供的
+            # 这类链接,改由安装后的 root 钩子(webclaw-app-postinstall)生成。
             if [ "$(jq -r '.unbundle_gl // false' "$MANIFEST")" = "true" ]; then
                 echo "65"
                 echo "# 正在卸绑 AppImage 自带 GL 库,改用系统 Mesa..."
                 LIBD="$EXTRACTED/shared/lib"
-                SYSD="/usr/lib/$(gcc -print-multiarch 2>/dev/null || dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null || echo aarch64-linux-gnu)"
                 if [ -d "$LIBD" ]; then
                     mkdir -p "$LIBD/.gl-bundled-bak"
                     for pat in libEGL libGL libGLX libGLES libGLdispatch libgbm; do
                         for f in "$LIBD/${pat}"*; do
-                            [ -e "$f" ] || continue
+                            [ -e "$f" ] || [ -L "$f" ] || continue
                             case "$f" in *.gl-bundled-bak*) continue ;; esac
                             mv -f "$f" "$LIBD/.gl-bundled-bak/" 2>>"$LOG" || true
                         done
-                    done
-                    for name in libEGL.so.1 libGL.so.1 libGLX.so.0 libGLdispatch.so.0 \
-                                libGLX_mesa.so.0 libEGL_mesa.so.0 libgbm.so.1 libGLESv2.so.2; do
-                        [ -e "$SYSD/$name" ] && ln -sfn "$SYSD/$name" "$LIBD/$name"
                     done
                 fi
             fi
@@ -476,20 +436,14 @@ case "$INSTALL_METHOD" in
             echo "# 正在安装..."
             # 把解压结果嵌套放进 $APPIMAGE_EXTRACT_DIR/AppDir,
             # 让 manifest 里的 binary 路径(如 .../ghostty/AppDir/bin/ghostty)自然成立
-            if ! sudo /bin/mv -f "$EXTRACTED" "$APPIMAGE_EXTRACT_DIR/AppDir" 2>>"$LOG"; then
-                echo "移动失败" >> "$LOG"
+            if ! stage_for_install "$EXTRACTED" || ! admin install-tree "$APP_ID" appdir >>"$LOG" 2>&1; then
+                echo "安装失败" >> "$LOG"
                 rm -f "$APPIMAGE_TMP"
-                rm -rf /tmp/squashfs-root "$EXTRACTED"
+                rm -rf /tmp/squashfs-root "$EXTRACTED" "/tmp/webclaw-stage-${APP_ID}"
                 echo "100"; exit 1
             fi
-            sudo /bin/chmod -R a+rX "$APPIMAGE_EXTRACT_DIR/AppDir" 2>>"$LOG" || true
             if [ -x "$APPIMAGE_EXTRACT_DIR/AppDir/AppRun" ]; then
-                cat > /tmp/${APP_ID}-wrapper.sh <<EOF
-#!/bin/bash
-APPDIR="$APPIMAGE_EXTRACT_DIR/AppDir" exec "$APPIMAGE_EXTRACT_DIR/AppDir/AppRun" "\$@"
-EOF
-                sudo /bin/mv -f /tmp/${APP_ID}-wrapper.sh "$APPIMAGE_EXTRACT_DIR/${APP_ID}" 2>>"$LOG"
-                sudo /bin/chmod +x "$APPIMAGE_EXTRACT_DIR/${APP_ID}" 2>>"$LOG"
+                admin wrapper "$APP_ID" "$APPIMAGE_EXTRACT_DIR/AppDir/AppRun" >>"$LOG" 2>&1
             fi
 
             # 清理临时文件
@@ -498,7 +452,7 @@ EOF
 
             echo "90"
             echo "# 正在配置..."
-            sudo /usr/local/bin/webclaw-app-postinstall "$APP_ID" >>"$LOG" 2>&1 || true
+            admin postinstall "$APP_ID" >>"$LOG" 2>&1 || true
 
             echo "100"
             echo "# 完成"
@@ -611,11 +565,8 @@ EOF
             echo "85"
             echo "# 正在安装..."
 
-            # 创建安装目录
-            sudo /bin/mkdir -p "$INSTALL_DIR" 2>>"$LOG"
-
-            # 将解压结果移动到安装目录
-            if ! sudo /bin/mv -f "$EXTRACTED" "$INSTALL_DIR/AppDir" 2>>"$LOG"; then
+            # 交给 broker 装进 /opt/<id>/AppDir
+            if ! stage_for_install "$EXTRACTED" || ! admin install-tree "$APP_ID" appdir >>"$LOG" 2>&1; then
                 echo "移动失败" >> "$LOG"
                 rm -rf "$TMP_EXTRACT" "$TMP_ZIP" /tmp/squashfs-root
                 echo "100"; exit 1
@@ -625,13 +576,7 @@ EOF
             # 需要找到实际的二进制文件位置
             ACTUAL_BIN=$(find "$INSTALL_DIR/AppDir" -type f -executable -name "webclaw-launcher" | head -1)
             if [ -n "$ACTUAL_BIN" ]; then
-                # 创建一个启动脚本
-                cat > /tmp/webclaw-launcher-wrapper.sh <<EOF
-#!/bin/bash
-exec "$ACTUAL_BIN" "\$@"
-EOF
-                sudo /bin/mv -f /tmp/${APP_ID}-wrapper.sh "$INSTALL_DIR/${APP_ID}" 2>>"$LOG"
-                sudo /bin/chmod +x "$INSTALL_DIR/${APP_ID}" 2>>"$LOG"
+                admin wrapper "$APP_ID" "$ACTUAL_BIN" >>"$LOG" 2>&1
             else
                 echo "未找到 ${APP_ID} 可执行文件" >> "$LOG"
                 rm -rf "$TMP_EXTRACT" "$TMP_ZIP" /tmp/squashfs-root
@@ -641,19 +586,8 @@ EOF
             # 清理临时文件
             rm -rf "$TMP_EXTRACT" "$TMP_ZIP" /tmp/squashfs-root
 
-            # 创建 desktop 快捷方式
-            cat > /tmp/${APP_ID}.desktop <<EOF
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=$NAME
-Comment=$NAME
-Exec=$INSTALL_DIR/${APP_ID} %F
-Icon=$APP_ID
-Terminal=false
-Categories=Utility;Application;
-EOF
-            sudo /bin/mv -f /tmp/${APP_ID}.desktop /usr/share/applications/ 2>>"$LOG"
+            # 创建 desktop 快捷方式（内容由 broker 按 manifest 生成）
+            admin desktop "$APP_ID" >>"$LOG" 2>&1
 
             echo "100"
             echo "# 完成"
@@ -742,28 +676,20 @@ EOF
 
         # ─── 特殊处理: .deb 文件直接安装 ───────────────────────────────────
         if [[ "$DOWNLOAD_URL" == *".deb"* ]]; then
-            DEB="/tmp/webclaw-ondemand-${APP_ID}.deb"
+            # .deb 由 root broker 按 manifest 自己下载并安装，launcher 不经手安装包。
             {
-                rm -f "$DEB"
-                if ! download_with_progress "$DOWNLOAD_URL" "$DEB" 10 60 "正在下载 $NAME"; then
-                    echo "100"; exit 1
-                fi
-
-                echo "60"
-                echo "# 正在安装..."
-                if ! sudo /usr/bin/apt-get install -y "$DEB" >>"$LOG" 2>&1; then
+                echo "10"
+                echo "# 正在下载并安装 $NAME..."
+                if ! admin deb-install "$APP_ID" >>"$LOG" 2>&1; then
                     echo "安装失败" >> "$LOG"
-                    rm -f "$DEB"
                     echo "100"; exit 1
                 fi
-
-                rm -f "$DEB"
                 echo "100"
                 echo "# 完成"
-            } | zenity --progress \
+            } | zenity --progress --pulsate \
                 --title="安装 $NAME" \
                 --text="准备中..." \
-                --percentage=0 --auto-close --no-cancel --width=420
+                --auto-close --no-cancel --width=420
 
             # 验证安装结果（dpkg 包检查）
             if dpkg -s "$PKG" 2>/dev/null | grep -q "Status: install ok installed"; then
@@ -831,14 +757,12 @@ EOF
                     EXTRACTED="$EXTRACTED_DIR"
                 elif [ -n "$EXTRACTED_FILE" ]; then
                     # 特殊情况：直接是可执行文件（如 Codex CLI）
-                    # 将文件移动到安装目录
-                    sudo /bin/mkdir -p "$INSTALL_DIR" 2>>"$LOG"
-                    if ! sudo /bin/mv -f "$EXTRACTED_FILE" "$INSTALL_DIR/${APP_ID}" 2>>"$LOG"; then
+                    # 交给 broker 装成 /opt/<id>/<id>
+                    if ! stage_for_install "$EXTRACTED_FILE" || ! admin install-tree "$APP_ID" binary >>"$LOG" 2>&1; then
                         echo "移动二进制文件失败" >> "$LOG"
-                        rm -rf "$TMP_EXTRACT"
+                        rm -rf "$TMP_EXTRACT" "/tmp/webclaw-stage-${APP_ID}"
                         echo "100"; exit 1
                     fi
-                    sudo /bin/chmod +x "$INSTALL_DIR/${APP_ID}" 2>>"$LOG"
                     rm -rf "$TMP_EXTRACT"
                     # 设置 ACTUAL_BIN 以便后续代码跳过查找步骤
                     ACTUAL_BIN="$INSTALL_DIR/${APP_ID}"
@@ -890,24 +814,24 @@ EOF
             echo "70"
             echo "# 正在安装..."
 
-            sudo /bin/mkdir -p "$INSTALL_DIR" 2>>"$LOG"
-            # 判断是否是 tar.gz 解压的内容
-            if [ -d "$EXTRACTED" ] && [ ! -f "$TMP_APPIMAGE" ] && [ ! -f "$TMP_ZIP" ]; then
-                # tar.gz: 复制解压目录内容到安装目录，避免 sudoers 匹配 shell 展开的多个源文件。
-                if ! sudo /bin/cp -a "$EXTRACTED/." "$INSTALL_DIR/" 2>>"$LOG"; then
+            # 单个二进制（EXTRACTED 为空）在上面已经装好
+            if [ -z "$EXTRACTED" ]; then
+                :
+            elif [ -d "$EXTRACTED" ] && [ ! -f "$TMP_APPIMAGE" ] && [ ! -f "$TMP_ZIP" ]; then
+                # tar.gz: 解压出来的顶层目录整体成为 /opt/<id>
+                if ! stage_for_install "$EXTRACTED" || ! admin install-tree "$APP_ID" flat >>"$LOG" 2>&1; then
                     echo "复制失败" >> "$LOG"
                     rm -f "$TMP_APPIMAGE" "$TMP_ZIP"
-                    rm -rf /tmp/squashfs-root "$TMP_EXTRACT"
+                    rm -rf /tmp/squashfs-root "$TMP_EXTRACT" "/tmp/webclaw-stage-${APP_ID}"
                     echo "100"; exit 1
                 fi
-                # 清理空的提取目录
-                rm -rf "$(dirname "$EXTRACTED")"
+                rm -rf "$TMP_EXTRACT"
             else
-                # AppImage/zip: 移动到 AppDir 子目录
-                if ! sudo /bin/mv -f "$EXTRACTED" "$INSTALL_DIR/AppDir" 2>>"$LOG"; then
+                # AppImage/zip: 放到 /opt/<id>/AppDir
+                if ! stage_for_install "$EXTRACTED" || ! admin install-tree "$APP_ID" appdir >>"$LOG" 2>&1; then
                     echo "移动失败" >> "$LOG"
                     rm -f "$TMP_APPIMAGE" "$TMP_ZIP"
-                    rm -rf /tmp/squashfs-root "$TMP_EXTRACT"
+                    rm -rf /tmp/squashfs-root "$TMP_EXTRACT" "/tmp/webclaw-stage-${APP_ID}"
                     echo "100"; exit 1
                 fi
             fi
@@ -941,12 +865,7 @@ EOF
             if [ -n "$ACTUAL_BIN" ]; then
                 # 只在二进制文件不在正确位置时创建 wrapper
                 if [ "$ACTUAL_BIN" != "$INSTALL_DIR/${APP_ID}" ]; then
-                    cat > /tmp/${APP_ID}-wrapper.sh <<EOF
-#!/bin/bash
-exec "$ACTUAL_BIN" "\$@"
-EOF
-                    sudo /bin/mv -f /tmp/${APP_ID}-wrapper.sh "$INSTALL_DIR/${APP_ID}" 2>>"$LOG"
-                    sudo /bin/chmod +x "$INSTALL_DIR/${APP_ID}" 2>>"$LOG"
+                    admin wrapper "$APP_ID" "$ACTUAL_BIN" >>"$LOG" 2>&1
                 fi
             else
                 echo "未找到可执行文件" >> "$LOG"
@@ -955,18 +874,8 @@ EOF
                 echo "100"; exit 1
             fi
 
-            # 创建 desktop 快捷方式
-            cat > /tmp/${APP_ID}.desktop <<EOF
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=$NAME
-Exec=$INSTALL_DIR/${APP_ID} %F
-Icon=$APP_ID
-Terminal=false
-Categories=Utility;
-EOF
-            sudo /bin/mv -f /tmp/${APP_ID}.desktop /usr/share/applications/ 2>>"$LOG"
+            # 创建 desktop 快捷方式（内容由 broker 按 manifest 生成）
+            admin desktop "$APP_ID" >>"$LOG" 2>&1
 
             # 清理临时文件
             rm -f "$TMP_APPIMAGE" "$TMP_ZIP"
@@ -1024,26 +933,20 @@ EOF
             echo "70"
             echo "# 正在安装..."
 
-            sudo /bin/mkdir -p "$INSTALL_DIR" 2>>"$LOG"
-            if ! sudo /bin/mv -f "$EXTRACTED" "$INSTALL_DIR/AppDir" 2>>"$LOG"; then
+            # 修正放在暂存阶段（ubuntu 自己的 /tmp 目录里），不需要 root
+            if [ -x "$EXTRACTED/cursor" ] && [ ! -x "$EXTRACTED/usr/share/cursor/cursor" ]; then
+                mv -f "$EXTRACTED/cursor" "$EXTRACTED/usr/share/cursor/cursor" 2>>"$LOG" || true
+                chmod +x "$EXTRACTED/usr/share/cursor/cursor" 2>>"$LOG" || true
+            fi
+            if ! stage_for_install "$EXTRACTED" || ! admin install-tree "$APP_ID" appdir >>"$LOG" 2>&1; then
                 echo "移动失败" >> "$LOG"
                 rm -f "$TMP_APPIMAGE"
-                rm -rf /tmp/squashfs-root
+                rm -rf /tmp/squashfs-root "/tmp/webclaw-stage-${APP_ID}"
                 echo "100"; exit 1
-            fi
-            sudo /bin/chmod -R a+rX "$INSTALL_DIR/AppDir" 2>>"$LOG" || true
-            if [ -x "$INSTALL_DIR/AppDir/cursor" ] && [ ! -x "$INSTALL_DIR/AppDir/usr/share/cursor/cursor" ]; then
-                sudo /bin/mv -f "$INSTALL_DIR/AppDir/cursor" "$INSTALL_DIR/AppDir/usr/share/cursor/cursor" 2>>"$LOG" || true
-                sudo /bin/chmod +x "$INSTALL_DIR/AppDir/usr/share/cursor/cursor" 2>>"$LOG" || true
             fi
 
             if [ -x "$INSTALL_DIR/AppDir/AppRun" ]; then
-                cat > /tmp/${APP_ID}-wrapper.sh <<EOF
-#!/bin/bash
-exec "$INSTALL_DIR/AppDir/AppRun" "\$@"
-EOF
-                sudo /bin/mv -f /tmp/${APP_ID}-wrapper.sh "$INSTALL_DIR/${APP_ID}" 2>>"$LOG"
-                sudo /bin/chmod +x "$INSTALL_DIR/${APP_ID}" 2>>"$LOG"
+                admin wrapper "$APP_ID" "$INSTALL_DIR/AppDir/AppRun" >>"$LOG" 2>&1
             else
                 echo "未找到 cursor 可执行文件" >> "$LOG"
                 rm -f "$TMP_APPIMAGE"
@@ -1051,19 +954,8 @@ EOF
                 echo "100"; exit 1
             fi
 
-            # 创建 desktop 快捷方式
-            cat > /tmp/${APP_ID}.desktop <<EOF
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=$NAME
-Comment=AI Code Editor
-Exec=$INSTALL_DIR/${APP_ID} %F
-Icon=$APP_ID
-Terminal=false
-Categories=IDE;Development;
-EOF
-            sudo /bin/mv -f /tmp/${APP_ID}.desktop /usr/share/applications/ 2>>"$LOG"
+            # 创建 desktop 快捷方式（内容由 broker 按 manifest 生成）
+            admin desktop "$APP_ID" >>"$LOG" 2>&1
 
             # 清理临时文件
             rm -f "$TMP_APPIMAGE"
@@ -1105,7 +997,8 @@ EOF
             echo "# 准备安装环境..."
 
             # 后台运行安装包装脚本（已内置 WEBCLAW_APP_LAUNCHER=1 DISABLE_ZENITY=1）
-            sudo "$INSTALL_WRAPPER" >>"$LOG" 2>&1 &
+            # 只有 sudoers 里逐个列出的 root 所有脚本能免密执行
+            sudo -n "$INSTALL_WRAPPER" >>"$LOG" 2>&1 &
             INSTALL_PID=$!
 
             # 监控进度文件并实时更新 zenity

@@ -1,0 +1,15 @@
+{
+  "id": "webclaw-test-ghdeb",
+  "name": "G",
+  "package": "example-app",
+  "binary": "/x",
+  "install_method": "github_release",
+  "github_repo": "example-org/example-app",
+  "use_fixed_version": true,
+  "version": "v1.2.3",
+  "asset_pattern": "example_{version_no_v}_{arch}.deb",
+  "arch_map": {
+    "amd64": "x86_64",
+    "arm64": "aarch64"
+  }
+}

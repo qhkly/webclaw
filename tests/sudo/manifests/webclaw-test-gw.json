@@ -1,0 +1,7 @@
+{
+  "id": "webclaw-test-gw",
+  "name": "GW",
+  "package": "x",
+  "binary": "/opt/webclaw-test-gw/x",
+  "install_method": "direct_download"
+}

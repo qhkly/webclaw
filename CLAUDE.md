@@ -165,6 +165,24 @@ The ecosystem design: forks evolve independently, and robots can submit PRs back
 
 GitHub Actions (`.github/workflows/`) builds and pushes multi-arch images (`linux/amd64`, `linux/arm64`) to Docker Hub and GitHub Container Registry for `v*` tags. Requires `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets.
 
+### Dual Node Runtime
+- **System Node** — `/usr/local/bin/node`, pinned 22.22.1, managed by root. Only for WebClaw's internal services (dashboard is bytenode bytecode and needs this exact Node). `start-dashboard.sh` hard-codes the interpreter and PATH. Never `npm -g` AI CLIs into it.
+- **User Node** — ubuntu's nvm at `~/.nvm` (`nvm-data` volume). The default is the latest Node. Holds Claude Code / Codex / Gemini / OpenCode / oh-my-opencode / Vercel / Wrangler / OpenClaw / dsh. The image builds it into `/opt/nvm-seed`, and `startup.sh` copies the seed into the volume when the volume is empty.
+- `scripts/user-node-env.sh` (→ `/opt/webclaw/user-node-env.sh`): sourceable loader `webclaw_load_user_node [--stable]`. Used by the openclaw / dsh / webcode-studiod start scripts. `--stable` puts `~/.nvm/current/bin` on PATH so long-running services survive Node upgrades.
+- `webclaw-user-node-run [--system-node] <cmd>`: runs a command in the user Node env. When called as root it drops to ubuntu, and `nvm` / `npm -g` calls take the shared lock. This is the entry point for software-manager and desktop shortcuts.
+- `webclaw-user-node-update`: startup runs it in the background, throttled to once per 24h. It installs the latest Node, migrates the global packages, verifies them, and only then switches the default.
+- Verify inside the container: `webclaw-verify-dual-node`. Regression test on the host: `./test-dual-node.sh`.
+
+### sudo Model (least privilege)
+- ubuntu has **no** global sudo. Automation may only use the exact entries in `configs/sudoers/webclaw-app-launcher`: the broker `/usr/local/bin/webclaw-app-admin` (validates its own arguments), plus individually listed root-owned install scripts and `webclaw-scripts-updater`, which are pinned to no arguments with `""`. Never add wildcard rules or new `dpkg`/`mv`/`cp`/`chmod` rules; add a broker action instead.
+- The broker derives every path from `app_id` plus the root-owned manifest in `/opt/on-demand-apps`. `webclaw-sudoers-audit` runs at the end of the build and fails it if any referenced file is not root-owned or is group/world-writable.
+- Manual sudo has three tiers, all off by default. `scripts/webclaw-apply-user-sudo.sh` recomputes the tier on every start:
+  - off: `ENABLE_USER_SUDO=false`.
+  - password: `ENABLE_USER_SUDO=true`. It only takes effect when `PASSWORD` is non-empty.
+  - passwordless: `ENABLE_USER_SUDO=true` plus `ENABLE_USER_SUDO_NOPASSWD=true`. It writes a runtime-only `/etc/sudoers.d/webclaw-user-nopasswd` (root:root 0440). The audit skips only that exact file with that exact content.
+- `PASSWORD` alone never grants sudo. Never load these flags from the user-writable `~/.webclaw/config.json`. Regression test: `./test-sudo-hardening.sh`.
+- The mounted `/var/run/docker.sock` is root-equivalent, so the sudo model protects against accidents; it is not a security boundary.
+
 ## Important Notes
 
 - code-server is installed at `/opt/code-server`.

@@ -3,8 +3,21 @@
 export DISPLAY=:1
 export XDG_RUNTIME_DIR=/run/user/1000
 
-if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
-    if sudo -n /usr/local/bin/lang-switch "$@" 2>/dev/null; then
+# 先把各种别名归一成 7 个短代码：sudoers 只精确放行
+# `lang-switch zh|en|ja|es|pt|ko|de` 这 7 条，不允许任意参数。
+case "${1:-}" in
+    zh|zh_CN|zh-CN|chinese|中文) LANG_CODE=zh ;;
+    en|en_US|en-US|english) LANG_CODE=en ;;
+    ja|ja_JP|ja-JP|japanese|日本語) LANG_CODE=ja ;;
+    es|es_ES|es-ES|es-419|spanish|español) LANG_CODE=es ;;
+    pt|pt_BR|pt-BR|portuguese|português) LANG_CODE=pt ;;
+    ko|ko_KR|ko-KR|korean|한국어) LANG_CODE=ko ;;
+    de|de_DE|de-DE|german|deutsch) LANG_CODE=de ;;
+    *) LANG_CODE="" ;;
+esac
+
+if [ "$(id -u)" -ne 0 ] && [ -n "$LANG_CODE" ] && command -v sudo >/dev/null 2>&1; then
+    if sudo -n /usr/local/bin/lang-switch "$LANG_CODE" 2>/dev/null; then
         exit 0
     fi
 fi

@@ -1,0 +1,9 @@
+{
+  "id": "webclaw-test-badscript",
+  "name": "Bad",
+  "package": "hello",
+  "apt_package": "hello",
+  "install_script": "/tmp/evil.sh",
+  "binary": "/usr/bin/hello",
+  "install_method": "apt"
+}

@@ -15,6 +15,13 @@ export HOME="${HOME:-/home/ubuntu}"
 export DSH_HOME="${DSH_HOME:-/home/ubuntu/.dsh}"
 mkdir -p "$DSH_HOME"
 
+# 用户 Node（ubuntu 的 nvm default）：dsh 本身装在这里，它执行的命令也用用户 Node。
+# --stable 让 PATH 走 ~/.nvm/current/bin，后台升级 Node 后派生的 CLI 自动跟上。
+# 加载失败（旧镜像没有 nvm）就按原 PATH 继续，不让服务直接起不来。
+. /opt/webclaw/user-node-env.sh
+webclaw_load_user_node --stable \
+  || echo "[deepseek-harness] WARNING: 用户 Node（~/.nvm）不可用，按系统 PATH 启动" >&2
+
 cd "$HOME"
 
 # --port / --no-open 是 web profile 自己的参数（dsh web --help 可见）。

@@ -13,7 +13,7 @@ Comment[es_ES]=Google Gemini AI CLI
 Comment[pt_BR]=Google Gemini AI CLI
 Comment[ko_KR]=Google Gemini AI CLI
 Comment[de_DE]=Google Gemini AI CLI
-Exec=gnome-terminal --name="Gemini CLI" -- /usr/local/bin/gemini
+Exec=gnome-terminal --name="Gemini CLI" -- /usr/local/bin/webclaw-user-node-run gemini
 Icon=gemini-cli
 Terminal=false
 Type=Application

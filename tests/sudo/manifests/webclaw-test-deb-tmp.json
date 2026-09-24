@@ -1,0 +1,12 @@
+{
+  "id": "webclaw-test-deb-tmp",
+  "name": "T",
+  "package": "webclaw-test-deb",
+  "binary": "/x",
+  "install_method": "direct_download",
+  "download_url": "file:///tmp/webclaw-evil/evil.deb",
+  "arch_map": {
+    "amd64": "amd64",
+    "arm64": "arm64"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "webclaw-test-badpkg",
+  "name": "Bad",
+  "package": "x",
+  "apt_package": "hello; id",
+  "binary": "/usr/bin/hello",
+  "install_method": "apt"
+}

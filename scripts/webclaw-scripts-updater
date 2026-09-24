@@ -1,28 +1,94 @@
 #!/usr/bin/env bash
-# 此脚本由 root 所有（chown root:root），ubuntu 不可修改。
-# 唯一功能：从固定的 GitHub 仓库拉取最新安装脚本覆盖 /opt/install-scripts/，
-# 并在结束时强制将目录权限锁回 root，确保 ubuntu 无法直接写入。
+# 此脚本由 root 所有（chown root:root），ubuntu 不可修改；sudoers 精确放行它且只允许无参数调用。
+# 唯一功能：从固定的 GitHub 仓库拉取最新安装脚本，替换 /opt/install-scripts/。
+#
+# 安全约束（sudoers 里逐个列出了 /opt/install-scripts/ 下的脚本，所以这个目录必须
+# 始终只能被 root 写）：
+#   - 所有路径硬编码，不接受环境变量/参数覆盖；
+#   - 下载、解压都在 root 私有临时目录里完成，不经过任何 ubuntu 可写路径；
+#   - 不执行下载下来的任何东西；
+#   - 解压时丢弃包内属主/权限，统一改成 root:root、目录 755、*.sh 755、其它 644。
+#
+# 可恢复的替换（任何时刻被杀都不会丢掉唯一的旧副本）：
+#   1. 旧目录先 rename 到固定备份位置 /opt/.install-scripts.backup（不放在临时目录里，
+#      临时目录会被 trap 清掉）；
+#   2. 新目录 rename 到位后才删除备份；
+#   3. 中途失败：EXIT trap 把备份挪回；被 SIGKILL 之类连 trap 都没跑：下次启动时
+#      发现 DEST 不在而备份在，先恢复再继续。
+#   并发调用用 flock 串行化。
 set -euo pipefail
+umask 022
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 TARBALL_URL="https://github.com/qhkly/webclaw-software-manager/archive/refs/heads/main.tar.gz"
 PREINSTALL_URL="https://raw.githubusercontent.com/qhkly/webclaw-software-manager/main/preinstall-apps.json"
 PREINSTALL_FULL_URL="https://raw.githubusercontent.com/qhkly/webclaw-software-manager/main/preinstall-full-apps.json"
 
-mkdir -p /opt/install-scripts
+DEST=/opt/install-scripts
+BACKUP=/opt/.install-scripts.backup
+LOCK=/opt/.install-scripts.lock
 
-curl -fsSL --max-time 60 "$TARBALL_URL" \
-  | tar -xz --strip-components=2 -C /opt/install-scripts/ \
-    "webclaw-software-manager-main/scripts/" 2>/dev/null
+[ "$(id -u)" = 0 ] || { echo "webclaw-scripts-updater 必须以 root 运行" >&2; exit 1; }
+[ $# -eq 0 ] || { echo "webclaw-scripts-updater 不接受参数" >&2; exit 2; }
 
-chmod +x /opt/install-scripts/*.sh 2>/dev/null || true
+exec 9>"$LOCK"
+flock -w 300 9 || { echo "另一个 webclaw-scripts-updater 正在运行" >&2; exit 1; }
 
-# 每次写入后强制锁回 root 所有、755 权限，断绝 ubuntu 写入路径
-chown -R root:root /opt/install-scripts
-chmod 755 /opt/install-scripts
+# 上次中断的收尾：DEST 不在、备份在 → 恢复；两者都在 → 新目录已就位，备份是残留。
+if [ ! -e "$DEST" ] && [ ! -L "$DEST" ] && [ -d "$BACKUP" ]; then
+    echo "检测到上次更新中断，恢复 $DEST" >&2
+    mv -T "$BACKUP" "$DEST"
+elif [ -e "$BACKUP" ] || [ -L "$BACKUP" ]; then
+    rm -rf -- "$BACKUP"
+fi
+rm -rf /opt/.install-scripts.new.* 2>/dev/null || true
 
-curl -fsSL --max-time 30 "$PREINSTALL_URL" \
-  -o /opt/preinstall-apps.json 2>/dev/null || true
-curl -fsSL --max-time 30 "$PREINSTALL_FULL_URL" \
-  -o /opt/preinstall-full-apps.json 2>/dev/null || true
+WORK="$(mktemp -d /opt/.install-scripts.new.XXXXXX)"
+chmod 700 "$WORK"
+cleanup() {
+    # 旧目录已挪走、新目录没放上去 → 挪回来。
+    if [ ! -e "$DEST" ] && [ ! -L "$DEST" ] && [ -d "$BACKUP" ]; then
+        mv -T "$BACKUP" "$DEST" || true
+    fi
+    rm -rf -- "$WORK"
+}
+trap cleanup EXIT
+
+curl -fsSL --max-time 60 "$TARBALL_URL" -o "$WORK/scripts.tgz"
+mkdir "$WORK/tree"
+tar -xzf "$WORK/scripts.tgz" -C "$WORK/tree" --strip-components=2 \
+    --no-same-owner --no-same-permissions \
+    "webclaw-software-manager-main/scripts/"
+
+# 只接受普通文件和目录：拒绝包里的符号链接/硬链接/设备文件。
+if [ -n "$(find "$WORK/tree" ! -type f ! -type d -print -quit)" ]; then
+    echo "安装脚本包里含有非普通文件，拒绝更新" >&2
+    exit 1
+fi
+ls "$WORK/tree"/*.sh >/dev/null 2>&1 || { echo "安装脚本包里没有 .sh，拒绝更新" >&2; exit 1; }
+
+chown -R root:root "$WORK/tree"
+find "$WORK/tree" -type d -exec chmod 755 {} +
+find "$WORK/tree" -type f -exec chmod 644 {} +
+find "$WORK/tree" -type f -name '*.sh' -exec chmod 755 {} +
+chmod 755 "$WORK/tree"
+
+if [ -e "$DEST" ] || [ -L "$DEST" ]; then
+    mv -T "$DEST" "$BACKUP"
+fi
+mv -T "$WORK/tree" "$DEST"
+rm -rf -- "$BACKUP"
+
+# 附带的预装清单同样先下到临时文件，成功才替换。
+for pair in "$PREINSTALL_URL|/opt/preinstall-apps.json" "$PREINSTALL_FULL_URL|/opt/preinstall-full-apps.json"; do
+    url="${pair%%|*}"; out="${pair#*|}"
+    tmp="$(mktemp /opt/.preinstall.XXXXXX)"
+    if curl -fsSL --max-time 30 "$url" -o "$tmp"; then
+        chown root:root "$tmp"; chmod 644 "$tmp"
+        mv -Tf "$tmp" "$out"
+    else
+        rm -f "$tmp"
+    fi
+done
 
 echo "updated"

@@ -1,0 +1,9 @@
+{
+  "id": "webclaw-test-apt",
+  "name": "Test Apt",
+  "package": "hello",
+  "apt_package": "hello",
+  "install_script": "/usr/local/bin/webclaw-test-prepare",
+  "binary": "/usr/bin/hello",
+  "install_method": "apt"
+}

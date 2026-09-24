@@ -16,6 +16,8 @@ ENV WEBCODE_HAS_VIBE_KANBAN=false
 ENV WEBCODE_HAS_CLAUDECODEUI=false
 
 # ─── 1. Base system: locale, sudo, ubuntu user, common CLI tools ─────
+# ubuntu 是普通用户：没有全局 sudo。自动化只能走 /etc/sudoers.d/webclaw-app-launcher
+# 里精确列出的 broker/脚本；人工 sudo 由 startup.sh 按 ENABLE_USER_SUDO 决定（需密码）。
 RUN apt-get update && apt-get install -y --no-install-recommends \
         locales sudo ca-certificates curl wget git gnupg \
         openssl software-properties-common \
@@ -25,8 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         xdg-utils bash-completion \
     && locale-gen en_US.UTF-8 zh_CN.UTF-8 \
     && update-locale LANG=zh_CN.UTF-8 \
-    && (id ubuntu &>/dev/null && usermod -s /bin/bash -aG sudo ubuntu || useradd -m -s /bin/bash -G sudo ubuntu) \
-    && echo "ubuntu ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
+    && (id ubuntu &>/dev/null && usermod -s /bin/bash ubuntu || useradd -m -s /bin/bash ubuntu) \
+    && (gpasswd -d ubuntu sudo >/dev/null 2>&1 || true) \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ─── 1b. GitHub CLI (gh) ───────────────────────────────────────────────────
@@ -40,6 +42,9 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 ARG NODE_VERSION=22.22.1
 
 # ─── 2. Node.js 22.22.1 (pinned) ────────────────────────────────────
+# 系统 Node：只给 WebClaw 内部常驻服务用，必须 root 属主。官方 tarball 里的属主是
+# 构建机的 uid（x64 包是 1000 = 容器里的 ubuntu），不加 --no-same-owner 的话
+# ubuntu 能直接往 /usr/local/bin、/usr/local/lib/node_modules 里写。
 RUN ARCH=$(dpkg --print-architecture) \
     && case "$ARCH" in \
          amd64) NODE_ARCH=x64 ;; \
@@ -47,7 +52,7 @@ RUN ARCH=$(dpkg --print-architecture) \
          *) echo "Unsupported Node.js architecture: $ARCH" >&2; exit 1 ;; \
        esac \
     && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" -o /tmp/node.tar.xz \
-    && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
+    && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 --no-same-owner \
     && rm -f /tmp/node.tar.xz
 
 # ─── 2a. Native module build dependencies for node-pty ──────────────
@@ -116,25 +121,41 @@ RUN apt-get update && apt-get install -y --no-install-recommends supervisor \
 RUN apt-get update && apt-get install -y --no-install-recommends ttyd \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# ─── 5b. Pre-install global AI CLI tools ──────────────────────────────
-RUN npm config set fetch-retries 5 && \
-    npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm config set fetch-timeout 300000 && \
-    npm install -g @anthropic-ai/claude-code@latest && \
-    npm install -g @openai/codex && \
-    npm install -g @google/gemini-cli && \
-    npm install -g opencode-ai@latest && \
-    npm install -g oh-my-opencode && \
-    npm install -g vercel && \
-    npm install -g wrangler
+# ─── 5b. 用户 Node（ubuntu 的 nvm）+ AI/开发 CLI ─────────────────────
+# 双 Node 运行时：上面第 2 步的 /usr/local Node 22.22.1 只给 WebClaw 内部常驻服务
+# （dashboard 等）用；AI/开发 CLI 装进 ubuntu 自己的 nvm（最新 Node），用户和 AI
+# 可以随便 nvm install / npm -g 升级，碰不到内部服务。
+# seed 以 root 构建，是 root:root 只读模板（ubuntu 改不了）；运行时拷到 ~/.nvm 后才归 ubuntu。
+# 装在 /opt/nvm-seed 而不是 ~/.nvm：~/.nvm 在运行时是持久卷（nvm-data），空卷会
+# 遮住镜像内容，由 startup.sh 在卷为空时从 seed 拷过去（scripts/user-node-env.sh）。
+# ~/.nvm 预建成 ubuntu 属主的空目录：Docker 新建命名卷时会沿用挂载点属主。
+# 新版 Node 官方二进制依赖 libatomic1（上面 build-essential 已间接装上，这里显式声明）。
+ARG NVM_VERSION=v0.40.3
+COPY scripts/build-user-node-seed.sh /opt/webclaw/build-user-node-seed.sh
+RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && chmod 755 /opt/webclaw/build-user-node-seed.sh \
+    && install -d -m 755 /opt/nvm-seed \
+    && install -d -o ubuntu -g ubuntu /home/ubuntu/.nvm \
+    && NVM_VERSION="${NVM_VERSION}" /opt/webclaw/build-user-node-seed.sh init
 
-# ─── 5c. Pre-install OpenClaw globally (易变，放最后避免破坏缓存) ─────
-RUN npm install -g openclaw@2026.5.7
+RUN /opt/webclaw/build-user-node-seed.sh install \
+        @anthropic-ai/claude-code@latest \
+        @openai/codex \
+        @google/gemini-cli \
+        opencode-ai@latest \
+        oh-my-opencode \
+        vercel \
+        wrangler
 
-# ─── 5c-2. Pre-install DeepSeek Harness globally (易变，紧跟 OpenClaw) ─
+# ─── 5c. OpenClaw（用户 Node，易变，放后面避免破坏缓存）─────────────
+# OpenClaw / dsh 是用户侧 AI 工具：会派生 claude/codex 等 CLI，用户也会自己升级，
+# 所以跟 CLI 一起装进用户 Node；supervisor 通过 start-openclaw.sh 加载用户 Node 启动。
+RUN /opt/webclaw/build-user-node-seed.sh install openclaw@2026.5.7
+
+# ─── 5c-2. DeepSeek Harness（用户 Node，易变，紧跟 OpenClaw）─────────
 # dsh web 常驻服务见 configs/supervisor-deepseek-harness.conf（内端口 10012）。
-RUN npm install -g @deepseek-ai/dsh@0.1.2-rc.1
+RUN /opt/webclaw/build-user-node-seed.sh install @deepseek-ai/dsh@0.1.2-rc.1
 
 # ─── 5d. sshfs：远程服务器目录挂载到本地做运维 ─────────────────────────
 # 放在 npm 层之后,避免让上面的 AI CLI 安装层缓存失效。

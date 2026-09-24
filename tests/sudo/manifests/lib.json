@@ -1,0 +1,7 @@
+{
+  "id": "lib",
+  "name": "Lib",
+  "package": "x",
+  "binary": "/opt/lib/x",
+  "install_method": "direct_download"
+}

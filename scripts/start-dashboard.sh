@@ -6,7 +6,13 @@ OVERRIDE_MAIN="${OVERRIDE_DIR}/dashboard-server.js"
 OVERRIDE_HTML="${OVERRIDE_DIR}/dashboard.html"
 OVERRIDE_FAVICON="${OVERRIDE_DIR}/dashboard-favicon.ico"
 PREPARED_MAIN="/tmp/dashboard-server-override.js"
-NODE_BIN="$(command -v node)"
+
+# 双 Node 运行时：dashboard 是 bytenode 字节码，必须跑在构建它的那个系统 Node
+# （/usr/local/bin/node，固定 22.22.1）上。显式锁死解释器和 PATH，不管调用方的
+# 环境里有没有 ubuntu 的 nvm，都不会被用户 Node 截走。
+NODE_BIN="/usr/local/bin/node"
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+unset NVM_DIR NVM_BIN NVM_INC
 
 if [ -f "${OVERRIDE_MAIN}" ]; then
   echo "[dashboard] using override source: ${OVERRIDE_MAIN}"
@@ -18,7 +24,7 @@ if [ -f "${OVERRIDE_MAIN}" ]; then
     OVERRIDE_HTML="${OVERRIDE_HTML}" \
     OVERRIDE_FAVICON="${OVERRIDE_FAVICON}" \
     PREPARED_MAIN="${PREPARED_MAIN}" \
-    node <<'EOF'
+    "${NODE_BIN}" <<'EOF'
 const fs = require('fs');
 
 const sourcePath = process.env.OVERRIDE_MAIN;
@@ -52,4 +58,4 @@ fi
 
 echo "[dashboard] using packaged server: webclaw-dashboard-server"
 export NODE_PATH="/usr/local/lib/node_modules:/usr/lib/node_modules"
-exec webclaw-dashboard-server
+exec "${NODE_BIN}" "$(readlink -f /usr/local/bin/webclaw-dashboard-server)"

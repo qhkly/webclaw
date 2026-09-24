@@ -25,6 +25,18 @@ case "$APP_ID" in
             ln -sfn "$MODULE" /usr/lib/gtk-4.0/4.0.0/immodules/libim-fcitx5.so
         fi
 
+        # launcher 已把 AppImage 自带的旧 GL 库挪进 .gl-bundled-bak（unbundle_gl）；
+        # 指向系统 Mesa 的链接出安装树，只能由这里以 root 在装好之后生成
+        # （broker 不接受用户暂存树里的越界链接）。
+        LIBD=/opt/ondemand-apps/ghostty/AppDir/shared/lib
+        if [ -d "$LIBD/.gl-bundled-bak" ] && [ ! -L "$LIBD" ]; then
+            SYSD="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null || gcc -print-multiarch 2>/dev/null || echo "$(uname -m)-linux-gnu")"
+            for name in libEGL.so.1 libGL.so.1 libGLX.so.0 libGLdispatch.so.0 \
+                        libGLX_mesa.so.0 libEGL_mesa.so.0 libgbm.so.1 libGLESv2.so.2; do
+                [ -e "$SYSD/$name" ] && ln -sfn "$SYSD/$name" "$LIBD/$name"
+            done
+        fi
+
         # Keep an AppDir-local link as a fallback for AppImages that do
         # include their own module search path.
         APPDIR=/opt/ondemand-apps/ghostty/AppDir

@@ -13,7 +13,7 @@ Comment[es_ES]=Asistente de programación AI Codex CLI
 Comment[pt_BR]=Assistente de codificação AI Codex CLI
 Comment[ko_KR]=Codex AI 코딩 어시스턴트 CLI
 Comment[de_DE]=Codex AI-Coding-Assistent-CLI
-Exec=gnome-terminal --name="Codex CLI" -- /usr/local/bin/codex
+Exec=gnome-terminal --name="Codex CLI" -- /usr/local/bin/webclaw-user-node-run codex
 Icon=codex
 Terminal=false
 Type=Application

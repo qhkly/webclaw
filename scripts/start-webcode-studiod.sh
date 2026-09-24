@@ -69,5 +69,13 @@ JSON
   # 写进去只是让这个文件自己说得清自己是什么状态。
 fi
 
+# 用户 Node（ubuntu 的 nvm default）：studiod 是原生二进制，但它派生的
+# Claude/Codex 等 CLI 装在 nvm 全局目录里，靠这里的 PATH 才找得到。
+# --stable 让 PATH 走 ~/.nvm/current/bin，后台升级 Node 后派生的 CLI 自动跟上。
+# 加载失败（旧镜像没有 nvm）就按原 PATH 继续，不让服务直接起不来。
+. /opt/webclaw/user-node-env.sh
+webclaw_load_user_node --stable \
+  || echo "[webcode-studiod] WARNING: 用户 Node（~/.nvm）不可用，按系统 PATH 启动" >&2
+
 cd "$HOME"
 exec /usr/local/bin/webcode-studiod

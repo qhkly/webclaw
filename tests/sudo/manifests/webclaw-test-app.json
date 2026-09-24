@@ -1,0 +1,7 @@
+{
+  "id": "webclaw-test-app",
+  "name": "Test App",
+  "package": "webclaw-test-app",
+  "binary": "/opt/ondemand-apps/webclaw-test-app/webclaw-test-app",
+  "install_method": "appimage"
+}

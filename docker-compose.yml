@@ -28,6 +28,7 @@ services:
       - gitconfig:/home/ubuntu/.gitconfig-vol
       - openclaw-data:/home/ubuntu/.openclaw
       - dsh-data:/home/ubuntu/.dsh            # DeepSeek Harness（dsh）会话/凭证/配置
+      - nvm-data:/home/ubuntu/.nvm            # 用户 Node（nvm + AI CLI），空卷首启从镜像 /opt/nvm-seed 初始化
       - chrome-data:/home/ubuntu/.config
       - v2rayn-data:/home/ubuntu/.local/share/v2rayN
       - recordings:/home/ubuntu/recordings
@@ -72,6 +73,11 @@ services:
       - SKILLS_BRANCH=${SKILLS_BRANCH:-main}
       - SKILLS_SYNC_INTERVAL=${SKILLS_SYNC_INTERVAL:-300}
       - CLEAN_DESKTOP=${CLEAN_DESKTOP:-true}
+      # 人工 sudo 三档，默认关闭，自动化不依赖它：
+      #   ENABLE_USER_SUDO=true                               → 需要密码（PASSWORD 非空才生效）
+      #   ENABLE_USER_SUDO=true + ENABLE_USER_SUDO_NOPASSWD=true → 免密码
+      - ENABLE_USER_SUDO=${ENABLE_USER_SUDO:-false}
+      - ENABLE_USER_SUDO_NOPASSWD=${ENABLE_USER_SUDO_NOPASSWD:-false}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     shm_size: "512m"
@@ -87,6 +93,7 @@ volumes:
   user-data:
   openclaw-data:
   dsh-data:
+  nvm-data:
   chrome-data:
   v2rayn-data:
   gitconfig:

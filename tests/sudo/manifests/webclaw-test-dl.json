@@ -1,0 +1,7 @@
+{
+  "id": "webclaw-test-dl",
+  "name": "Test DL\nExec=/tmp/evil",
+  "package": "webclaw-test-dl",
+  "binary": "/opt/webclaw-test-dl/webclaw-test-dl",
+  "install_method": "direct_download"
+}

@@ -399,6 +399,11 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/start-deepseek-harness.sh /opt/start-deepseek-harness.sh \
     && cp /tmp/_scripts/start-proxy.sh /opt/start-proxy.sh \
     && cp /tmp/_scripts/start-webcode-studiod.sh /opt/start-webcode-studiod.sh \
+    && mkdir -p /opt/webclaw \
+    && cp /tmp/_scripts/user-node-env.sh /opt/webclaw/user-node-env.sh \
+    && cp /tmp/_scripts/webclaw-user-node-run.sh /usr/local/bin/webclaw-user-node-run \
+    && cp /tmp/_scripts/webclaw-user-node-update.sh /usr/local/bin/webclaw-user-node-update \
+    && cp /tmp/_scripts/verify-dual-node.sh /usr/local/bin/webclaw-verify-dual-node \
     && cp /tmp/_scripts/start-ssh.sh /opt/start-ssh.sh \
     && cp /tmp/_scripts/openclaw-browser.sh /usr/local/bin/openclaw-browser \
     && cp /tmp/_scripts/deepseek-harness-browser.sh /usr/local/bin/deepseek-harness-browser \
@@ -426,6 +431,9 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/install-antigravity.sh /usr/local/bin/install-antigravity \
     && cp /tmp/_scripts/preinstall-on-demand.sh /usr/local/bin/preinstall-on-demand.sh \
     && cp /tmp/_scripts/webclaw-scripts-updater /usr/local/bin/webclaw-scripts-updater \
+    && cp /tmp/_scripts/webclaw-app-admin.sh /usr/local/bin/webclaw-app-admin \
+    && cp /tmp/_scripts/webclaw-sudoers-audit.sh /usr/local/bin/webclaw-sudoers-audit \
+    && cp /tmp/_scripts/webclaw-apply-user-sudo.sh /usr/local/bin/webclaw-apply-user-sudo \
     && cp /tmp/_configs/install-qq.sh /opt/install-qq.sh \
     && cp /tmp/_configs/uninstall-qq.sh /opt/uninstall-qq.sh \
     && cp /tmp/_configs/qq-install-wrapper.sh /opt/qq-install-wrapper.sh \
@@ -465,6 +473,8 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/start-dashboard.sh /opt/start-webtty.sh /opt/start-openclaw.sh /opt/start-deepseek-harness.sh /opt/start-ssh.sh \
         /opt/start-proxy.sh \
         /opt/start-webcode-studiod.sh \
+        /usr/local/bin/webclaw-user-node-run /usr/local/bin/webclaw-user-node-update \
+        /usr/local/bin/webclaw-verify-dual-node \
         /usr/local/bin/openclaw-browser /usr/local/bin/code-server-browser \
         /usr/local/bin/deepseek-harness-browser \
         /opt/install-hermes.sh /opt/uninstall-hermes.sh /usr/local/bin/hermes-launcher \
@@ -482,6 +492,8 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /usr/local/bin/install-antigravity \
         /usr/local/bin/preinstall-on-demand.sh \
         /usr/local/bin/webclaw-scripts-updater \
+        /usr/local/bin/webclaw-app-admin /usr/local/bin/webclaw-sudoers-audit \
+        /usr/local/bin/webclaw-apply-user-sudo \
         /usr/local/bin/on-demand-helpers/*.sh \
         /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
@@ -500,6 +512,10 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
         /opt/install-discord.sh /opt/uninstall-discord.sh \
         /opt/install-webclaw-software-manager.sh /opt/uninstall-webclaw-software-manager.sh \
+        /opt/install-webcode-ai-studio.sh /opt/uninstall-webcode-ai-studio.sh \
+        /opt/install-webcode-git-manager.sh /opt/uninstall-webcode-git-manager.sh \
+        /opt/on-demand-apps /opt/on-demand-apps/*.json \
+    && chmod 755 /opt/on-demand-apps && chmod 644 /opt/on-demand-apps/*.json \
     && chmod 755 /opt/install-hermes.sh /opt/uninstall-hermes.sh \
         /opt/hermes-install-wrapper.sh \
         /opt/start-hermes-dashboard.sh /opt/hermes-browser.sh \
@@ -507,21 +523,38 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /opt/install-telegram.sh /opt/uninstall-telegram.sh /opt/telegram-install-wrapper.sh \
         /opt/install-discord.sh /opt/uninstall-discord.sh \
         /opt/install-webclaw-software-manager.sh /opt/uninstall-webclaw-software-manager.sh \
+        /opt/install-webcode-ai-studio.sh /opt/uninstall-webcode-ai-studio.sh \
+        /opt/install-webcode-git-manager.sh /opt/uninstall-webcode-git-manager.sh \
     && echo "下载 install-scripts..." \
     && /usr/local/bin/webclaw-scripts-updater \
     && echo "install-scripts 下载完成" \
     && mkdir -p /opt/dashboard-override \
     && chown -R ubuntu:ubuntu /opt/dashboard-override \
     && printf '\n# Theme switch aliases\nalias light-mode="/usr/local/bin/theme-switch light"\nalias dark-mode="/usr/local/bin/theme-switch dark"\n' >> /home/ubuntu/.bashrc \
+    && chmod 644 /opt/webclaw/user-node-env.sh \
+    && if ! grep -q '>>> webclaw user node >>>' /home/ubuntu/.bashrc; then \
+        printf '%s\n' '' \
+            '# >>> webclaw user node >>>' \
+            '# 用户 Node（nvm default）。系统 Node 固定在 /usr/local/bin/node，只给内部服务用。' \
+            'export NVM_DIR="$HOME/.nvm"' \
+            '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"' \
+            '[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"' \
+            '# <<< webclaw user node <<<' >> /home/ubuntu/.bashrc; \
+    fi \
     && printf '\n# Language switch aliases\nalias chinese="/usr/local/bin/lang-switch zh"\nalias english="/usr/local/bin/lang-switch en"\n' >> /home/ubuntu/.bashrc \
-    && printf 'ubuntu ALL=(root) NOPASSWD: /usr/local/bin/lang-switch *\n' > /etc/sudoers.d/webclaw-lang-switch \
+    && for code in zh en ja es pt ko de; do \
+        printf 'ubuntu ALL=(root) NOPASSWD: /usr/local/bin/lang-switch %s\n' "$code"; \
+       done > /etc/sudoers.d/webclaw-lang-switch \
     && chmod 0440 /etc/sudoers.d/webclaw-lang-switch \
     && visudo -c -f /etc/sudoers.d/webclaw-lang-switch \
     && mkdir -p /home/ubuntu/.claude/skills \
     && cp -r /opt/skills/* /home/ubuntu/.claude/skills/ \
     && chown -R ubuntu:ubuntu /home/ubuntu/.claude/skills \
     && echo "land007/webclaw" > /.image_name \
-    && echo $(date "+%Y-%m-%d_%H:%M:%S") > /.image_time
+    && echo $(date "+%Y-%m-%d_%H:%M:%S") > /.image_time \
+    && sed -i '/^ubuntu ALL=(ALL) NOPASSWD:ALL$/d' /etc/sudoers \
+    && (gpasswd -d ubuntu sudo >/dev/null 2>&1 || true) \
+    && /usr/local/bin/webclaw-sudoers-audit
 
 # ─── 12b. Preinstall required lightweight on-demand apps ─────────────
 # cc-switch is part of the base image so the launcher can seed its provider DB

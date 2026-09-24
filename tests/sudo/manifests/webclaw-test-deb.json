@@ -1,0 +1,12 @@
+{
+  "id": "webclaw-test-deb",
+  "name": "Test Deb",
+  "package": "webclaw-test-deb",
+  "binary": "/usr/lib/webclaw-test/webclaw-test-deb/ok",
+  "install_method": "direct_download",
+  "download_url": "file:///opt/webclaw-test-debs/webclaw-test-deb.deb",
+  "arch_map": {
+    "amd64": "amd64",
+    "arm64": "arm64"
+  }
+}

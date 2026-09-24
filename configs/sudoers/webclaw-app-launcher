@@ -1,27 +1,27 @@
-# 按需安装专用 sudoers 片段
-# 只允许 ubuntu 用户对调度脚本下载到固定前缀的 .deb 执行 apt-get install,
-# 不影响全局 sudo 策略(即便 startup.sh 在设置 PASSWORD 时移除了全局 NOPASSWD)
+# WebClaw 按需安装 sudoers —— 最小权限（ubuntu 没有全局 sudo）
+#
+# 规则只有三类，全部是精确路径、不带参数通配。
+# 注意 sudoers 语义：命令后面不写参数 = 允许任意参数；写 "" = 只允许无参数调用。
+# 所以脚本和 updater 一律带 ""；只有 broker 不带，参数由它自己严格校验。
+#   1. 受控 broker：/usr/local/bin/webclaw-app-admin。apt / .deb / AppImage /
+#      r2_download / direct_download 的所有 root 动作都经它，由它校验动作、app_id、
+#      包名（来自 root 所有的 manifest）和路径（由 app_id 推导）。
+#   2. 逐个列出的 root 所有安装/卸载脚本（custom_script 与 software-manager）。
+#      刻意不用 /opt/install-scripts/*.sh 通配：脚本目录一旦被放宽，通配就等于任意 root。
+#   3. webclaw-scripts-updater（只从固定仓库更新上面那个脚本目录，结束时锁回 root）。
+#
+# 刻意**不**放行：dpkg -i、git、supervisorctl（socket 已对 ubuntu 组开放，不需要 sudo）、
+# gpg/tee 写 apt 源、mkdir/mv/cp/chmod 到 /opt、debconf-set-selections、
+# /opt/install-scripts/install-claude-code.sh（root npm -g 会污染系统 Node；
+# Claude 升级请用 /usr/local/bin/webclaw-user-node-run npm install -g @anthropic-ai/claude-code@latest）。
+#
+# 所有被引用的路径必须 root:root 且 group/other 不可写，构建末尾由
+# webclaw-sudoers-audit 校验，不满足直接构建失败。
 
-# github_release 模式: 固定路径前缀的 .deb (OpenTypeless / CC Switch 等)
-ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -y /tmp/webclaw-ondemand-*.deb
+# ─── 1. broker ───────────────────────────────────────────────────────
+ubuntu ALL=(root) NOPASSWD: /usr/local/bin/webclaw-app-admin
 
-# dpkg 安装任意 .deb（由 install-scripts 内部调用）
-ubuntu ALL=(root) NOPASSWD: /usr/bin/dpkg -i *
-ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -fy
-
-# 卸载模式: 由受控脚本读取 manifest 并只删除对应应用的受管安装目录或包
-ubuntu ALL=(root) NOPASSWD: /usr/local/bin/webclaw-app-uninstaller *
-
-# 日志准备: 避免 /tmp 下残留 root-owned 日志导致桌面用户无法写入
-ubuntu ALL=(root) NOPASSWD: /usr/local/bin/webclaw-log-prepare *
-
-# apt 模式: 刷新索引(每个 apt 应用安装前都需要)
-ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get update
-
-# debconf 预配置（用于 Wireshark 等需要非交互安装的包）
-ubuntu ALL=(root) NOPASSWD: /usr/bin/debconf-set-selections
-
-# apt 模式: 显式列出每个允许按需安装的包名(避免通配符放权)
+# ─── 兼容：software-manager 的 Apt 动作（精确包名，待其改走 broker 后删除）──
 ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -y code
 ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -y wireshark
 ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -y flameshot
@@ -30,116 +30,90 @@ ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -y gimp
 ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -y blender
 ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -y audacity
 
-# 预安装脚本权限（用于 Antigravity 等需要先配置仓库的应用）
-ubuntu ALL=(root) NOPASSWD: /usr/local/bin/install-antigravity
-ubuntu ALL=(root) NOPASSWD: /opt/hermes-install-wrapper.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-hermes.sh
-ubuntu ALL=(root) NOPASSWD: /opt/uninstall-hermes.sh
-ubuntu ALL=(root) NOPASSWD: /usr/bin/gpg --dearmor -o /etc/apt/keyrings/*
-ubuntu ALL=(root) NOPASSWD: /bin/tee /etc/apt/sources.list.d/*
-ubuntu ALL=(root) NOPASSWD: /bin/chmod +x /etc/apt/keyrings/*
+# ─── 2a. 镜像自带的 custom_script 安装/卸载脚本（/opt 下，root 所有）──────
+ubuntu ALL=(root) NOPASSWD: /opt/hermes-install-wrapper.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-hermes.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-hermes.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/qq-install-wrapper.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-qq.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-qq.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/telegram-install-wrapper.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-telegram.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-telegram.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-discord.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-discord.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-webcode-git-manager.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-webcode-git-manager.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-webcode-ai-studio.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-webcode-ai-studio.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-webclaw-software-manager.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/uninstall-webclaw-software-manager.sh ""
 
-# 应用安装后置钩子: root-side 脚本按 app_id 分发执行预定义动作
-# (Wireshark 建组+setcap 等). 命令参数硬编码在脚本内,避免 sudoers 解析 setcap
-# 参数中的 = 时把它误判为 env 赋值导致规则不匹配。
-ubuntu ALL=(root) NOPASSWD: /usr/local/bin/webclaw-app-postinstall *
+# ─── 2b. software-manager 脚本目录 /opt/install-scripts/（逐个列出）─────────
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-ai-folder-organizer.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-ai-folder-organizer.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-android-studio.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-android-studio.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-cc-switch.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-cc-switch.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-cursor.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-cursor.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-dbeaver.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-dbeaver.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-discord.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-discord.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-dockyard.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-dockyard.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-eclipse.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-eclipse.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-ghostty.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-ghostty.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-hermes.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-hermes.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-image-to-svg.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-image-to-svg.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-intellij.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-intellij.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-ipshield.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-ipshield.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-obsidian.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-obsidian.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-opencode.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-opencode.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-opentypeless.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-opentypeless.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-pycharm.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-pycharm.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-qq.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-qq.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-sshield.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-sshield.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-telegram.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-telegram.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-trae.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-trae.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webclaw-calendar.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webclaw-calendar.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webclaw-launcher.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webclaw-launcher.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webclaw-software-manager.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webclaw-software-manager.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webclaw-video-creator.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webclaw-video-creator.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webcode-ai-studio.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webcode-ai-studio.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webcode-git-manager.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webcode-git-manager.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webcode-i18n-manager.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webcode-i18n-manager.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webcode-icon-manager.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webcode-icon-manager.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webcode-release-tool.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webcode-release-tool.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webstorm.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webstorm.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-wechat.sh ""
+ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-wechat.sh ""
 
-# appimage 模式: 创建目录、嵌套移动解压内容 (Ghostty / Obsidian 等)
-# AppImage 解压后内容嵌套放进 /opt/ondemand-apps/<id>/AppDir/,
-# 让 manifest 里的 binary 路径形如 /opt/ondemand-apps/<id>/AppDir/bin/<bin> 自然成立。
-# pkgforge 系列 AppImage (如 Ghostty) 解压出 /tmp/AppDir,
-# 标准 AppImage 解压出 /tmp/squashfs-root,两种都允许。
-ubuntu ALL=(root) NOPASSWD: /bin/mkdir -p /opt/ondemand-apps
-ubuntu ALL=(root) NOPASSWD: /bin/mkdir -p /opt/ondemand-apps/*
-ubuntu ALL=(root) NOPASSWD: /bin/mv -f /tmp/AppDir /opt/ondemand-apps/*/AppDir
-ubuntu ALL=(root) NOPASSWD: /bin/mv -f /tmp/squashfs-root /opt/ondemand-apps/*/AppDir
-
-# r2_download / direct_download 模式: 安装到 /opt/<app-id> (WebClaw Launcher / Cursor 等)
-ubuntu ALL=(root) NOPASSWD: /bin/mkdir -p /opt/*
-ubuntu ALL=(root) NOPASSWD: /bin/mv -f /tmp/*-extract-*/* /opt/*/*
-ubuntu ALL=(root) NOPASSWD: /bin/cp -a /tmp/*-extract-*/*/. /opt/*/
-ubuntu ALL=(root) NOPASSWD: /bin/mv -f /tmp/squashfs-root /opt/*/AppDir
-ubuntu ALL=(root) NOPASSWD: /bin/mv -f /tmp/*-wrapper.sh /opt/*/*
-ubuntu ALL=(root) NOPASSWD: /bin/chmod +x /opt/*/*
-ubuntu ALL=(root) NOPASSWD: /bin/mv -f /tmp/*.desktop /usr/share/applications/
-
-# Hermes Agent 专用：Python 包、Git、Supervisor（为 custom_script 安装方法提供支持）
-ubuntu ALL=(root) NOPASSWD: /usr/bin/apt-get install -y python3-venv python3-pip git curl software-properties-common python3.11 python3.11-venv
-ubuntu ALL=(root) NOPASSWD: /usr/bin/git
-ubuntu ALL=(root) NOPASSWD: /usr/bin/supervisorctl *
-
-# QQ 安装专用权限
-ubuntu ALL=(root) NOPASSWD: /opt/qq-install-wrapper.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-qq.sh
-ubuntu ALL=(root) NOPASSWD: /opt/uninstall-qq.sh
-
-# Telegram 安装专用权限（custom_script 模式）
-ubuntu ALL=(root) NOPASSWD: /opt/telegram-install-wrapper.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-telegram.sh
-ubuntu ALL=(root) NOPASSWD: /opt/uninstall-telegram.sh
-
-# Discord 安装专用权限（custom_script 模式）
-ubuntu ALL=(root) NOPASSWD: /opt/install-discord.sh
-ubuntu ALL=(root) NOPASSWD: /opt/uninstall-discord.sh
-
-# webcode-git-manager 安装专用权限（custom_script 模式）
-ubuntu ALL=(root) NOPASSWD: /opt/install-webcode-git-manager.sh
-ubuntu ALL=(root) NOPASSWD: /opt/uninstall-webcode-git-manager.sh
-
-# webcode-ai-studio 安装专用权限（custom_script 模式）
-ubuntu ALL=(root) NOPASSWD: /opt/install-webcode-ai-studio.sh
-ubuntu ALL=(root) NOPASSWD: /opt/uninstall-webcode-ai-studio.sh
-
-# webclaw-software-manager 统一脚本目录权限（/opt/install-scripts/）
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webcode-git-manager.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webcode-git-manager.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-wechat.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-wechat.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-dbeaver.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-dbeaver.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-obsidian.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-obsidian.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-cc-switch.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-cc-switch.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-opencode.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-opencode.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-opentypeless.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-opentypeless.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-dockyard.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-dockyard.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-ghostty.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-ghostty.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-cursor.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-cursor.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-trae.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-trae.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webclaw-launcher.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webclaw-launcher.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webcode-ai-studio.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webcode-ai-studio.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-hermes.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-hermes.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-intellij.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-intellij.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-pycharm.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-pycharm.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webstorm.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webstorm.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-eclipse.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-eclipse.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-android-studio.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-android-studio.sh
-
-# webclaw-scripts-updater：ubuntu 只能通过这一个 root 所有的更新器写入 /opt/install-scripts/
-# 更新器执行完毕后会强制 chown root:root，确保目录始终不可被 ubuntu 直接写入
-ubuntu ALL=(root) NOPASSWD: /usr/local/bin/webclaw-scripts-updater
-
-# webclaw-software-manager：允许 ubuntu 以 root 身份运行 /opt/install-scripts/ 下所有脚本
-# 安全性依赖上方更新器保证目录始终 root 所有（ubuntu 写不进去 → 通配符无提权路径）
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/*.sh
-
-# webclaw-software-manager 安装专用权限
-ubuntu ALL=(root) NOPASSWD: /opt/install-webclaw-software-manager.sh
-ubuntu ALL=(root) NOPASSWD: /opt/uninstall-webclaw-software-manager.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/install-webclaw-software-manager.sh
-ubuntu ALL=(root) NOPASSWD: /opt/install-scripts/uninstall-webclaw-software-manager.sh
+# ─── 3. 脚本目录更新器 ──────────────────────────────────────────────
+ubuntu ALL=(root) NOPASSWD: /usr/local/bin/webclaw-scripts-updater ""

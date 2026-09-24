@@ -143,6 +143,15 @@ if [ ! -f /home/ubuntu/.code-server/User/argv.json ]; then
 fi
 chown -R ubuntu:ubuntu /home/ubuntu/.code-server
 
+# ─── 用户 Node（ubuntu 的 nvm）────────────────────────────────────
+# ~/.nvm 是持久卷（nvm-data），新卷是空的，会遮住镜像内容：从 /opt/nvm-seed 拷一份。
+# 已有内容（用户升级过的 Node/CLI）原样保留。必须在 supervisord 之前完成，
+# OpenClaw / dsh / webcode-studiod 启动时要从这里加载用户 Node。
+if [ -f /opt/webclaw/user-node-env.sh ]; then
+    . /opt/webclaw/user-node-env.sh
+    webclaw_user_node_restore_seed || echo "[startup] WARNING: 用户 nvm 初始化失败"
+fi
+
 # ─── OpenClaw data directory ───────────────────────────────────────
 mkdir -p /home/ubuntu/.openclaw
 chown -R ubuntu:ubuntu /home/ubuntu/.openclaw
@@ -245,11 +254,6 @@ else
     sed -i 's/autostart=true/autostart=false/' /etc/supervisor/conf.d/supervisor-cloudflared.conf
 fi
 
-# ─── Background tool upgrades (non-blocking) ─────────────────────────
-# Upgrade claude-code for ubuntu user via nvm
-su -l ubuntu -c \
-    'source ~/.nvm/nvm.sh 2>/dev/null && npm install -g @anthropic-ai/claude-code@latest >> /tmp/claude-upgrade.log 2>&1' &
-
 # ─── Enable ClaudeCodeUI Platform mode (no authentication required) ───
 if [ -f /opt/enable-claudecodeui-platform-mode.sh ]; then
     bash /opt/enable-claudecodeui-platform-mode.sh
@@ -275,16 +279,26 @@ export ENABLE_WEBCODE_STUDIOD="${ENABLE_WEBCODE_STUDIOD:-false}"
 #   - false: 保持传统行为，所有应用（包括未安装）都在桌面显示
 export CLEAN_DESKTOP="${CLEAN_DESKTOP:-true}"
 
-# ─── Ubuntu user password setup ────────────────────────────────────
-# 设置 ubuntu 用户密码（如果提供了 PASSWORD 环境变量）
+# ─── Ubuntu user password + 人工 sudo 三档 ───────────────────────────
+# PASSWORD 只负责设置 ubuntu 密码（兼容 VNC 等），本身不代表获得 sudo。
+# 人工 sudo 由启动器显式传入的两个开关决定，默认都关闭，逻辑见 webclaw-apply-user-sudo：
+#   ENABLE_USER_SUDO=false                                → 关闭
+#   ENABLE_USER_SUDO=true  ENABLE_USER_SUDO_NOPASSWD=false → 需要密码（PASSWORD 非空才生效）
+#   ENABLE_USER_SUDO=true  ENABLE_USER_SUDO_NOPASSWD=true  → 免密码
+# 每次启动幂等重算；自动化用的受控入口（webclaw-app-admin 等）三档下都不变。
 if [ -n "$PASSWORD" ]; then
     echo "[startup] Setting ubuntu user password"
     echo "ubuntu:$PASSWORD" | chpasswd
-    # 移除 NOPASSWD，改为使用密码验证
-    if grep -q "NOPASSWD" /etc/sudoers; then
-        sed -i '/NOPASSWD/d' /etc/sudoers
-        echo "[startup] Removed NOPASSWD from sudoers, password now required"
-    fi
+fi
+if [ -x /usr/local/bin/webclaw-apply-user-sudo ]; then
+    ENABLE_USER_SUDO="${ENABLE_USER_SUDO:-false}" \
+    ENABLE_USER_SUDO_NOPASSWD="${ENABLE_USER_SUDO_NOPASSWD:-false}" \
+    PASSWORD="$PASSWORD" \
+        /usr/local/bin/webclaw-apply-user-sudo \
+        || echo "[startup] WARNING: 人工 sudo 档位应用失败，已按关闭处理"
+else
+    gpasswd -d ubuntu sudo >/dev/null 2>&1 || true
+    rm -f /etc/sudoers.d/webclaw-user-nopasswd
 fi
 
 # ─── Proxy (mihomo) ─────────────────────────────────────────────────
@@ -320,6 +334,16 @@ if [ "$ENABLE_PROXY" = "true" ]; then
 else
     # 网页里随时可以打开，所以目录和 secret 先备好，省得开关一按还要等初始化。
     proxy_prepare_dir
+fi
+
+# ─── 用户 Node 后台跟随最新（非阻塞）─────────────────────────────────
+# 查最新 Node → 迁移全局包 → 校验 → 切 default，再把 Claude Code 升到 latest。
+# 自带用户 Node 锁（和 software-manager 的 npm -g 互斥）和 24h 节流；
+# 放在代理段之后：降级模式下要继承上面导出的 http_proxy。
+# 延迟一分钟再开始，不跟开机时的服务抢 CPU/网络。WEBCLAW_USER_NODE_AUTO_UPDATE=false 可关。
+if [ -x /usr/local/bin/webclaw-user-node-update ]; then
+    ( sleep 60; exec timeout 3600 nice -n 10 /usr/local/bin/webclaw-user-node-update ) \
+        >> /tmp/webclaw-user-node-update.log 2>&1 &
 fi
 
 # ─── Mode selection ─────────────────────────────────────────────────

@@ -1,0 +1,12 @@
+{
+  "id": "webclaw-test-deb-placeholder",
+  "name": "P",
+  "package": "webclaw-test-deb",
+  "binary": "/x",
+  "install_method": "direct_download",
+  "download_url": "https://example.com/x-{version}.deb",
+  "arch_map": {
+    "amd64": "amd64",
+    "arm64": "arm64"
+  }
+}
