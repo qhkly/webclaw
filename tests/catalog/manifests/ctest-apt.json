@@ -1,0 +1,8 @@
+{
+  "id": "ctest-apt",
+  "name": "Catalog Test Apt",
+  "package": "ctest-aptpkg",
+  "apt_package": "ctest-aptpkg",
+  "binary": "/usr/bin/ctest-aptpkg",
+  "install_method": "apt"
+}

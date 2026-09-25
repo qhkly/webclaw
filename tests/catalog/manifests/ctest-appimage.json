@@ -1,0 +1,13 @@
+{
+  "id": "ctest-appimage",
+  "name": "Catalog Test AppImage",
+  "package": "ctest-appimage",
+  "binary": "/opt/ondemand-apps/ctest-appimage/ctest-appimage",
+  "install_method": "appimage",
+  "github_repo": "test-org/ctest-appimage",
+  "asset_pattern": "CTest-{version}-{arch_suffix}.AppImage",
+  "arch_map": {
+    "amd64": "x86_64",
+    "arm64": "aarch64"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "ctest-custom2",
+  "name": "Catalog Test Custom (no reinstall upgrade)",
+  "package": "ctest-custom2",
+  "binary": "/opt/ctest-custom/ctest-custom",
+  "install_method": "custom_script",
+  "install_script": "/opt/ctest-install.sh"
+}

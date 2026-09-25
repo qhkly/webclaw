@@ -13,6 +13,8 @@ COPY configs/sudoers/webclaw-app-launcher /etc/sudoers.d/webclaw-app-launcher
 COPY configs/on-demand-apps/ /opt/on-demand-apps/
 COPY tests/sudo/manifests/ /opt/on-demand-apps/
 COPY scripts/webclaw-app-admin.sh /usr/local/bin/webclaw-app-admin
+COPY scripts/lib/runtime-catalog.sh /usr/local/lib/webclaw/runtime-catalog.sh
+COPY scripts/lib/on-demand-core.sh /opt/lib/on-demand-core.sh
 COPY scripts/webclaw-app-uninstaller.sh /usr/local/bin/webclaw-app-uninstaller
 COPY scripts/webclaw-app-postinstall.sh /usr/local/bin/webclaw-app-postinstall
 COPY scripts/webclaw-sudoers-audit.sh /usr/local/bin/webclaw-sudoers-audit
@@ -47,4 +49,6 @@ RUN for code in zh en ja es pt ko de; do \
     && chmod 755 /opt/webclaw-test-debs && chmod 644 /opt/webclaw-test-debs/*.deb \
     && printf '#!/bin/sh\ntouch /tmp/webclaw-test-prepared\n' > /usr/local/bin/webclaw-test-prepare \
     && chmod 755 /usr/local/bin/webclaw-test-prepare \
-    && chown -R root:root /opt /usr/local/bin /etc/sudoers.d
+    && chmod 755 /usr/local/lib/webclaw /opt/lib \
+    && chmod 644 /usr/local/lib/webclaw/runtime-catalog.sh /opt/lib/on-demand-core.sh \
+    && chown -R root:root /opt /usr/local/bin /usr/local/lib /etc/sudoers.d

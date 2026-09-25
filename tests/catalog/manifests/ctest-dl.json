@@ -1,0 +1,13 @@
+{
+  "id": "ctest-dl",
+  "name": "Catalog Test Tarball",
+  "package": "ctest-dl",
+  "binary": "/opt/ctest-dl/ctest-dl",
+  "install_method": "direct_download",
+  "version_api": "https://downloads.ctest.example/ctest-dl-version.json",
+  "download_url": "https://downloads.ctest.example/ctest-dl-{version}-{arch}.tar.gz",
+  "arch_map": {
+    "amd64": "x86_64",
+    "arm64": "aarch64"
+  }
+}

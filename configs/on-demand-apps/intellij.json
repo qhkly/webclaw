@@ -10,5 +10,9 @@
     "amd64": "x86_64",
     "arm64": "aarch64"
   },
-  "launch_script": "bin/idea.sh"
+  "launch_script": "bin/idea.sh",
+  "catalog_url_prefixes": [
+    "https://download.jetbrains.com/",
+    "https://download-cdn.jetbrains.com/"
+  ]
 }

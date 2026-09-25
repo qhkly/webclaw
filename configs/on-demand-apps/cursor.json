@@ -11,5 +11,8 @@
   "arch_map": {
     "amd64": "linux-x64",
     "arm64": "linux-arm64"
-  }
+  },
+  "catalog_url_prefixes": [
+    "https://downloads.cursor.com/"
+  ]
 }

@@ -1,0 +1,13 @@
+{
+  "id": "ctest-slow",
+  "name": "Catalog Test Slow AppImage",
+  "package": "ctest-slow",
+  "binary": "/opt/ondemand-apps/ctest-slow/ctest-slow",
+  "install_method": "appimage",
+  "github_repo": "test-org/ctest-slow",
+  "asset_pattern": "Slow-{version}-{arch_suffix}.AppImage",
+  "arch_map": {
+    "amd64": "x86_64",
+    "arm64": "aarch64"
+  }
+}

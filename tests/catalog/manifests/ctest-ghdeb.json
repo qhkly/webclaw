@@ -1,0 +1,15 @@
+{
+  "id": "ctest-ghdeb",
+  "name": "Catalog Test Deb",
+  "package": "ctest-app",
+  "binary": "/usr/bin/ctest-app",
+  "install_method": "github_release",
+  "github_repo": "test-org/ctest-app",
+  "use_fixed_version": true,
+  "version": "v1.0.0",
+  "asset_pattern": "ctest-app_{version_no_v}_{arch}.deb",
+  "arch_map": {
+    "amd64": "all",
+    "arm64": "all"
+  }
+}

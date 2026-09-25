@@ -346,6 +346,22 @@ if [ -x /usr/local/bin/webclaw-user-node-update ]; then
         >> /tmp/webclaw-user-node-update.log 2>&1 &
 fi
 
+# ─── 运行时软件目录（runtime catalog）后台刷新（非阻塞）──────────────
+# 第三方软件的版本 / 下载地址 / sha256 来自固定 URL 的 runtime-catalog.json，镜像不用为此重打。
+# 自带 flock 与节流（6 小时内成功过、或 10 分钟内尝试过就跳过）；离线/GitHub 不可达时只记日志，
+# 旧 cache 与 manifest 自带的在线解析逻辑照常可用。日志写 /var/log（root 所有），不写 /tmp。
+if [ -x /usr/local/bin/webclaw-catalog-update ]; then
+    (
+        sleep 20
+        while :; do
+            timeout 300 nice -n 10 /usr/local/bin/webclaw-catalog-update --if-stale || true
+            # 每 15 分钟只做一次轻量检查；updater 自己保证 6 小时内成功过不会联网，
+            # 最近失败 10 分钟内也不会重复请求。
+            sleep 900
+        done
+    ) >> /var/log/webclaw-catalog-update.log 2>&1 &
+fi
+
 # ─── Mode selection ─────────────────────────────────────────────────
 if [ "$MODE" = "lite" ]; then
     echo "[startup] Lite mode: starting code-server + OpenClaw only (no VNC desktop)"

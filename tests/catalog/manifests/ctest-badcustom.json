@@ -1,0 +1,8 @@
+{
+  "id": "ctest-badcustom",
+  "name": "Catalog Test Bad Custom",
+  "package": "ctest-badcustom",
+  "binary": "/opt/ctest-badcustom/x",
+  "install_method": "custom_script",
+  "install_script": "/tmp/evil-install.sh"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "ctest-flat",
+  "name": "Catalog Test Flat Tarball",
+  "package": "ctest-flat",
+  "binary": "/opt/ctest-flat/bin/run.sh",
+  "install_method": "direct_download",
+  "version_api": "https://downloads.ctest.example/ctest-flat-version.json",
+  "download_url": "https://downloads.ctest.example/ctest-flat-{version}.tar.gz",
+  "launch_script": "bin/run.sh",
+  "arch_map": {
+    "amd64": "x86_64",
+    "arm64": "aarch64"
+  }
+}

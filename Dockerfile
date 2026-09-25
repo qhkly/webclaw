@@ -432,6 +432,13 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
     && cp /tmp/_scripts/preinstall-on-demand.sh /usr/local/bin/preinstall-on-demand.sh \
     && cp /tmp/_scripts/webclaw-scripts-updater /usr/local/bin/webclaw-scripts-updater \
     && cp /tmp/_scripts/webclaw-app-admin.sh /usr/local/bin/webclaw-app-admin \
+    && cp /tmp/_scripts/webclaw-catalog-update.sh /usr/local/bin/webclaw-catalog-update \
+    && install -d -m 755 -o root -g root /usr/local/lib/webclaw \
+    && install -m 644 -o root -g root /tmp/_scripts/lib/runtime-catalog.sh /usr/local/lib/webclaw/runtime-catalog.sh \
+    && install -d -m 755 -o root -g root /var/lib/webclaw /var/lib/webclaw/catalog /var/lib/webclaw/installed \
+    && (id webclaw-unpack >/dev/null 2>&1 || useradd --system --no-create-home --home-dir /nonexistent \
+        --shell /usr/sbin/nologin webclaw-unpack) \
+    && install -d -m 710 -o root -g webclaw-unpack /var/lib/webclaw/unpack \
     && cp /tmp/_scripts/webclaw-sudoers-audit.sh /usr/local/bin/webclaw-sudoers-audit \
     && cp /tmp/_scripts/webclaw-apply-user-sudo.sh /usr/local/bin/webclaw-apply-user-sudo \
     && cp /tmp/_configs/install-qq.sh /opt/install-qq.sh \
@@ -493,6 +500,7 @@ RUN cp /tmp/_configs/supervisord.conf /etc/supervisor/supervisord.conf \
         /usr/local/bin/preinstall-on-demand.sh \
         /usr/local/bin/webclaw-scripts-updater \
         /usr/local/bin/webclaw-app-admin /usr/local/bin/webclaw-sudoers-audit \
+        /usr/local/bin/webclaw-catalog-update \
         /usr/local/bin/webclaw-apply-user-sudo \
         /usr/local/bin/on-demand-helpers/*.sh \
         /opt/install-qq.sh /opt/uninstall-qq.sh /opt/qq-install-wrapper.sh \

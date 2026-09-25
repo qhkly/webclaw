@@ -2,11 +2,14 @@
 # 通用按需安装调度器
 #
 # 用法: webclaw-app-launcher <app-id> [args...]
+#       webclaw-app-launcher --uninstall <app-id>
+#       webclaw-app-launcher --upgrade <app-id>
 #
 # 行为:
 #   - 读 /opt/on-demand-apps/<app-id>.json 拿到包名/二进制/安装方式
 #   - 若已装,直接 setsid exec 二进制(透传 args)
 #   - 未装则 zenity 询问,确认后按 install_method 执行安装
+#   - --upgrade: 已装时按同一流程重装到最新版（apt/.deb 走 broker upgrade，已是最新会直接返回）
 #
 # 支持的 install_method:
 #   - "github_release" (默认): 从 .github_repo 拿最新 release,按 .asset_pattern + .arch_map
@@ -20,9 +23,15 @@
 #
 # 需要 root 的动作一律走 /usr/local/bin/webclaw-app-admin（sudoers 只放行它）:
 #   调用方只传「动作 + app_id」，源/目标路径、包名都由 broker 根据 root 所有的
-#   manifest 推导。下载/解压仍以 ubuntu 身份在 /tmp 完成，然后:
-#   - .deb 不经 launcher：admin deb-install <id> 由 root 按 manifest 自己下载并安装
-#   - 解压结果放到 /tmp/webclaw-stage-<id>     → admin install-tree <id> appdir|flat|binary
+#   manifest（+ 已校验的 runtime catalog）推导。
+#   - apt / .deb（github_release、direct_download 的 .deb）/ custom_script:
+#       整个安装交给 broker 高层 API：admin install|upgrade <id>
+#   - AppImage / zip / tar 类（appimage、direct_download、cursor_api、r2_download）:
+#       先 admin fetch <id>：runtime catalog 有条目时由 root 下载并校验 sha256 后交给这里；
+#       退出码 3（catalog 没有该应用）才回退到下面原来的在线解析 + 下载；
+#       其它失败（如 sha256 不匹配）直接报错，不回退。
+#       解压仍以 ubuntu 身份在 /tmp 完成，结果放到 /tmp/webclaw-stage-<id>
+#       → admin install-tree <id> appdir|flat|binary
 
 set -u
 set -o pipefail
@@ -51,11 +60,14 @@ APP_ID="${1:-}"
 shift || true
 ACTION="launch"
 
-if [ "$APP_ID" = "--uninstall" ]; then
-    ACTION="uninstall"
+if [ "$APP_ID" = "--uninstall" ] || [ "$APP_ID" = "--upgrade" ]; then
+    ACTION="${APP_ID#--}"
     APP_ID="${1:-}"
     shift || true
 fi
+# 交给 broker 高层 API 的动词
+BROKER_VERB="install"
+[ "$ACTION" = "upgrade" ] && BROKER_VERB="upgrade"
 
 if [ -z "$APP_ID" ]; then
     zenity --error --title="按需安装" --text="缺少应用 ID 参数" --width=320
@@ -176,6 +188,49 @@ stage_for_install() {
     mv -T -- "$1" "$stage" 2>>"$LOG"
 }
 
+# ─── runtime catalog（经 broker）────────────────────────────────────
+# fetch 成功后设置：CATALOG_FILE（已校验 sha256 的安装包）、CATALOG_VERSION、CATALOG_URL
+CATALOG_FILE=""
+CATALOG_VERSION=""
+CATALOG_URL=""
+CATALOG_RC=3
+
+# 带一个「查询中」的进度框调用 admin fetch；结果写进上面的全局变量。
+prefetch_from_catalog() {
+    local out rc_file
+    out="$(mktemp /tmp/webclaw-fetch-"${APP_ID}".XXXXXX)"
+    rc_file="${out}.rc"
+    {
+        echo "# 正在从软件目录获取 $NAME..."
+        admin fetch "$APP_ID" >"$out" 2>>"$LOG"
+        echo "$?" >"$rc_file"
+    } | zenity --progress --pulsate \
+        --title="安装 $NAME" \
+        --text="正在查询软件目录..." \
+        --auto-close --no-cancel --width=420
+    CATALOG_RC="$(cat "$rc_file" 2>/dev/null || echo 1)"
+    if [ "$CATALOG_RC" = 0 ]; then
+        CATALOG_FILE="$(jq -r '.file // empty' "$out" 2>/dev/null)"
+        CATALOG_VERSION="$(jq -r '.version // empty' "$out" 2>/dev/null)"
+        CATALOG_URL="$(jq -r '.url // empty' "$out" 2>/dev/null)"
+        echo "Runtime catalog: version=${CATALOG_VERSION}, url=${CATALOG_URL}, sha256 verified by broker" >> "$LOG"
+        [ -n "$CATALOG_FILE" ] && [ -f "$CATALOG_FILE" ] || CATALOG_RC=1
+    fi
+    rm -f "$out" "$rc_file"
+}
+
+# 已从 catalog 拿到安装包就直接用，否则按旧逻辑下载。参数同 download_with_progress。
+obtain_artifact() {
+    if [ -n "$CATALOG_FILE" ]; then
+        echo "${4:-50}"
+        echo "# 已获取 $NAME ${CATALOG_VERSION}（sha256 已校验）"
+        mv -f -- "$CATALOG_FILE" "$2" 2>>"$LOG" || return 1
+        rmdir -- "$(dirname "$CATALOG_FILE")" 2>/dev/null || true
+        return 0
+    fi
+    download_with_progress "$@"
+}
+
 get_github_latest_tag() {
     local repo="$1"
     local tag=""
@@ -257,7 +312,7 @@ fi
 
 # 已装 -> 直接启动,setsid 脱离终端避免阻塞 dbus-launch 等
 # 根据安装方法使用不同的检查方式
-if is_app_installed; then
+if [ "$ACTION" = "launch" ] && is_app_installed; then
     # 确保输入法环境变量被传递（fcitx5 前端模块仍使用 fcitx 这个值）
     export GTK_IM_MODULE=${GTK_IM_MODULE:-fcitx}
     export QT_IM_MODULE=${QT_IM_MODULE:-fcitx}
@@ -280,62 +335,103 @@ if is_app_installed; then
     exit 0
 fi
 
-# 未装 -> 询问
-zenity --question \
-    --title="$NAME" \
-    --text="<b>$NAME</b> 尚未安装。\n\n点「安装」会下载并安装最新版,\n这会占用一些磁盘空间。" \
-    --ok-label="安装" --cancel-label="取消" \
-    --width=400 || exit 0
+if [ "$ACTION" = "upgrade" ]; then
+    if ! is_app_installed; then
+        zenity --info --title="$NAME" --text="<b>$NAME</b> 当前未安装。" --width=340
+        exit 0
+    fi
+    # 能否升级由 broker 决定（support_check + manifest 的 upgrade_by_reinstall），launcher 不自行判断。
+    zenity --question \
+        --title="$NAME" \
+        --text="要把 <b>$NAME</b> 升级到最新版吗?" \
+        --ok-label="升级" --cancel-label="取消" \
+        --width=400 || exit 0
+else
+    # 未装 -> 询问
+    zenity --question \
+        --title="$NAME" \
+        --text="<b>$NAME</b> 尚未安装。\n\n点「安装」会下载并安装最新版,\n这会占用一些磁盘空间。" \
+        --ok-label="安装" --cancel-label="取消" \
+        --width=400 || exit 0
+fi
 
 prepare_log
-echo "Install requested: app_id=${APP_ID}, name=${NAME}, method=${INSTALL_METHOD}, package=${PKG}, binary=${BIN}" >> "$LOG"
+echo "Install requested: action=${ACTION}, app_id=${APP_ID}, name=${NAME}, method=${INSTALL_METHOD}, package=${PKG}, binary=${BIN}" >> "$LOG"
 
+# AppImage / zip / tar 类：整个安装交给 broker 高层 API（root 下载 + sha256 校验 +
+# 专用低权限用户解包 + 校验 + 装进受管目录）。只有 broker 明确返回 3（unsupported）时，
+# 才走下面 launcher 自带的旧流程（先 fetch catalog 安装包，没有再在线解析）。
+# 其它失败（如 sha256 不匹配）直接报错，不回退。
+DIRECT_IS_DEB=false
+case "$(jq -r '.download_url // empty' "$MANIFEST")" in *.deb*) DIRECT_IS_DEB=true ;; esac
+INSTALL_CASE="$INSTALL_METHOD"
 case "$INSTALL_METHOD" in
+    appimage|r2_download|cursor_api|direct_download)
+        if [ "$INSTALL_METHOD" != "direct_download" ] || [ "$DIRECT_IS_DEB" = false ]; then
+            BROKER_RC_FILE="$(mktemp /tmp/webclaw-broker-rc-"${APP_ID}".XXXXXX)"
+            {
+                echo "# 正在下载并安装 $NAME..."
+                admin "$BROKER_VERB" "$APP_ID" >>"$LOG" 2>&1
+                echo "$?" > "$BROKER_RC_FILE"
+            } | zenity --progress --pulsate \
+                --title="安装 $NAME" \
+                --text="正在下载并安装 $NAME..." \
+                --auto-close --no-cancel --width=420
+            BROKER_RC="$(cat "$BROKER_RC_FILE" 2>/dev/null || echo 1)"
+            rm -f "$BROKER_RC_FILE"
+            if [ "$BROKER_RC" = 0 ]; then
+                INSTALL_CASE="broker-done"
+            elif [ "$BROKER_RC" = 3 ]; then
+                echo "broker reported unsupported; using launcher legacy flow" >> "$LOG"
+                prefetch_from_catalog
+                if [ "$CATALOG_RC" != 0 ] && [ "$CATALOG_RC" != 3 ]; then
+                    echo "runtime catalog fetch failed (rc=$CATALOG_RC); not falling back" >> "$LOG"
+                    zenity --error --title="$NAME" \
+                        --text="从软件目录下载或校验 $NAME 失败,为安全起见已停止安装。\n详细日志:\n$LOG" \
+                        --width=420
+                    exit 1
+                fi
+            else
+                echo "broker ${BROKER_VERB} failed (rc=$BROKER_RC); not falling back" >> "$LOG"
+                zenity --error --title="$NAME" \
+                    --text="安装 $NAME 失败(下载、校验或解包出错),为安全起见未回退旧流程。\n详细日志:\n$LOG" \
+                    --width=420
+                exit 1
+            fi
+        fi
+        ;;
+esac
+
+case "$INSTALL_CASE" in
+    broker-done)
+        # broker 已经端到端装好，下面统一校验
+        ;;
+
     apt)
         # ─── apt 仓库直装(VS Code 等 / Antigravity 等) ─────────────────
+        # broker 内部完成：manifest 声明的 root 预置脚本（加 apt 源等）、apt-get update、
+        # Wireshark 的 debconf 预配置、apt-get install <manifest 声明的包>、安装后置钩子。
         APT_PKG=$(jq -r '.apt_package' "$MANIFEST")
-        INSTALL_SCRIPT=$(jq -r '.install_script // empty' "$MANIFEST")
-
-        # 如果有预安装脚本(如添加 apt 仓库),先执行
-        if [ -n "$INSTALL_SCRIPT" ]; then
-            {
-                echo "5"
-                echo "# 正在准备安装环境..."
-                if ! admin apt-prepare "$APP_ID" >>"$LOG" 2>&1; then
-                    echo "安装脚本执行失败" >> "$LOG"
-                    echo "100"; exit 1
-                fi
-                echo "35"
-                echo "# 环境准备完成"
-            } | zenity --progress \
-                --title="安装 $NAME" \
-                --text="准备中..." \
-                --percentage=0 --auto-close --no-cancel --width=420
-        fi
-
         {
-            echo "40"
+            echo "10"
             echo "# 正在安装 $NAME ($APT_PKG)..."
-            # broker 内部完成 apt-get update、Wireshark 的 debconf 预配置、
-            # apt-get install <manifest 声明的包>、以及安装后置钩子。
-            if ! admin apt-install "$APP_ID" >>"$LOG" 2>&1; then
-                echo "apt 安装 $APT_PKG 失败" >> "$LOG"
+            if ! admin "$BROKER_VERB" "$APP_ID" >>"$LOG" 2>&1; then
+                echo "apt ${BROKER_VERB} $APT_PKG 失败" >> "$LOG"
                 echo "100"; exit 1
             fi
-
             echo "100"
             echo "# 完成"
-        } | zenity --progress \
+        } | zenity --progress --pulsate \
             --title="安装 $NAME" \
             --text="准备中..." \
-            --percentage=0 --auto-close --no-cancel --width=420
+            --auto-close --no-cancel --width=420
         ;;
 
     github_release)
         # ─── GitHub release 下 .deb 装(OpenTypeless / CC Switch 等) ──
         # .deb 的 maintainer script 以 root 运行，所以下载也必须由 root broker 自己做：
-        # 它按 root 所有的 manifest 推导 GitHub 地址、下载到私有目录、校验 Package 后安装。
-        # launcher 不再下载/传递 .deb。
+        # 它按 runtime catalog（强制 sha256）或 root 所有的 manifest 推导地址、下载到私有目录、
+        # 校验 Package 后安装。launcher 不再下载/传递 .deb。
         ARCH=$(dpkg --print-architecture)
         if [ -z "$(jq -r --arg a "$ARCH" '.arch_map[$a] // empty' "$MANIFEST")" ]; then
             zenity --error --title="$NAME" --text="不支持的架构: $ARCH" --width=320
@@ -345,7 +441,7 @@ case "$INSTALL_METHOD" in
         {
             echo "10"
             echo "# 正在下载并安装 $NAME..."
-            if ! admin deb-install "$APP_ID" >>"$LOG" 2>&1; then
+            if ! admin "$BROKER_VERB" "$APP_ID" >>"$LOG" 2>&1; then
                 echo "下载或安装失败" >> "$LOG"
                 echo "100"; exit 1
             fi
@@ -376,20 +472,25 @@ case "$INSTALL_METHOD" in
         {
             echo "5"
             echo "# 正在查询最新版本..."
-            VERSION_TAG=$(get_github_latest_tag "$REPO")
-            VERSION="${VERSION_TAG#v}"
-            if [ -z "$VERSION" ]; then
-                echo "无法获取最新版本号" >> "$LOG"
-                echo "100"; exit 1
+            if [ -n "$CATALOG_FILE" ]; then
+                VERSION="${CATALOG_VERSION#v}"
+                URL="$CATALOG_URL"
+            else
+                VERSION_TAG=$(get_github_latest_tag "$REPO")
+                VERSION="${VERSION_TAG#v}"
+                if [ -z "$VERSION" ]; then
+                    echo "无法获取最新版本号" >> "$LOG"
+                    echo "100"; exit 1
+                fi
+
+                # 替换版本和架构后缀(注意: arch_var 可能是空字符串)
+                ASSET=${ASSET_PATTERN//\{version\}/$VERSION}
+                ASSET=${ASSET//\{arch_suffix\}/$ARCH_VAR}
+                URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ASSET}"
             fi
 
-            # 替换版本和架构后缀(注意: arch_var 可能是空字符串)
-            ASSET=${ASSET_PATTERN//\{version\}/$VERSION}
-            ASSET=${ASSET//\{arch_suffix\}/$ARCH_VAR}
-            URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ASSET}"
-
             rm -f "$APPIMAGE_TMP"
-            if ! download_with_progress "$URL" "$APPIMAGE_TMP" 15 40 "正在下载 $NAME v$VERSION"; then
+            if ! obtain_artifact "$URL" "$APPIMAGE_TMP" 15 40 "正在下载 $NAME v$VERSION"; then
                 echo "100"; exit 1
             fi
 
@@ -490,22 +591,27 @@ case "$INSTALL_METHOD" in
         {
             echo "5"
             echo "# 正在查询最新版本..."
-            API_RESP=$(curl -fsSL "$DOWNLOAD_API" 2>>"$LOG")
-            if [ -z "$API_RESP" ]; then
-                echo "无法获取版本信息" >> "$LOG"
-                echo "100"; exit 1
-            fi
+            if [ -n "$CATALOG_FILE" ]; then
+                VERSION="$CATALOG_VERSION"
+                DOWNLOAD_URL="$CATALOG_URL"
+            else
+                API_RESP=$(curl -fsSL "$DOWNLOAD_API" 2>>"$LOG")
+                if [ -z "$API_RESP" ]; then
+                    echo "无法获取版本信息" >> "$LOG"
+                    echo "100"; exit 1
+                fi
 
-            VERSION=$(echo "$API_RESP" | jq -r '.version // .latest // empty' 2>>"$LOG")
-            if [ -z "$VERSION" ]; then
-                echo "无法解析版本号" >> "$LOG"
-                echo "100"; exit 1
-            fi
+                VERSION=$(echo "$API_RESP" | jq -r '.version // .latest // empty' 2>>"$LOG")
+                if [ -z "$VERSION" ]; then
+                    echo "无法解析版本号" >> "$LOG"
+                    echo "100"; exit 1
+                fi
 
-            DOWNLOAD_URL=$(echo "$API_RESP" | jq -r ".assets.${ASSET_KEY}.url // empty" 2>>"$LOG")
-            if [ -z "$DOWNLOAD_URL" ]; then
-                echo "无法获取下载链接" >> "$LOG"
-                echo "100"; exit 1
+                DOWNLOAD_URL=$(echo "$API_RESP" | jq -r ".assets.${ASSET_KEY}.url // empty" 2>>"$LOG")
+                if [ -z "$DOWNLOAD_URL" ]; then
+                    echo "无法获取下载链接" >> "$LOG"
+                    echo "100"; exit 1
+                fi
             fi
 
             TMP_ZIP="/tmp/webclaw-launcher-${VERSION}.zip"
@@ -513,7 +619,7 @@ case "$INSTALL_METHOD" in
 
             rm -f "$TMP_ZIP"
             rm -rf "$TMP_EXTRACT"
-            if ! download_with_progress "$DOWNLOAD_URL" "$TMP_ZIP" 15 50 "正在下载 $NAME v$VERSION"; then
+            if ! obtain_artifact "$DOWNLOAD_URL" "$TMP_ZIP" 15 50 "正在下载 $NAME v$VERSION"; then
                 echo "100"; exit 1
             fi
 
@@ -623,64 +729,14 @@ case "$INSTALL_METHOD" in
             exit 1
         fi
 
-        # ─── 获取版本号和下载链接 ─────────────────────────────────────────────
-        # 方式1: 通过 version_api (自定义 JSON API)
-        if [ -n "$VERSION_API" ]; then
-            if [[ "$VERSION_API" == file:///* ]]; then
-                # 本地脚本：file:///path/to/script.sh
-                SCRIPT_PATH="${VERSION_API#file://}"  # 注意：两个斜杠，不是三个
-                VERSION=$("$SCRIPT_PATH" 2>>"$LOG" | jq -r '.version // .latest // empty' 2>>"$LOG")
-            else
-                # HTTP API
-                VERSION=$(curl -fsSL "$VERSION_API" 2>>"$LOG" | jq -r '.version // .latest // empty' 2>>"$LOG")
-            fi
-        fi
-
-        # 方式2: JetBrains 产品 - 使用官方 API 获取最新版本和下载链接
-        JETBRAINS_CODE=$(jq -r '.jetbrains_code // empty' "$MANIFEST" 2>/dev/null)
-        if [ -n "$JETBRAINS_CODE" ]; then
-            # JetBrains API: https://data.services.jetbrains.com/products/releases?code=XXX&latest=true&type=release
-            JB_API_RESP=$(curl -fsSL "https://data.services.jetbrains.com/products/releases?code=${JETBRAINS_CODE}&latest=true&type=release" 2>>"$LOG")
-            # 提取版本号
-            if [ -z "$VERSION" ]; then
-                VERSION=$(echo "$JB_API_RESP" | jq -r ".[\"${JETBRAINS_CODE}\"][0].version // empty" 2>>"$LOG")
-            fi
-            # 根据架构获取正确的下载链接
-            if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
-                DIRECT_URL=$(echo "$JB_API_RESP" | jq -r ".[\"${JETBRAINS_CODE}\"][0].downloads.linuxARM64.link // empty" 2>>"$LOG")
-            else
-                DIRECT_URL=$(echo "$JB_API_RESP" | jq -r ".[\"${JETBRAINS_CODE}\"][0].downloads.linux.link // empty" 2>>"$LOG")
-            fi
-            # 如果 API 返回了直接链接，使用它
-            echo "JetBrains latest ${JETBRAINS_CODE}: version=${VERSION}, url=${DIRECT_URL}" >> "$LOG"
-            if [ -n "$DIRECT_URL" ] && [ "$DIRECT_URL" != "null" ]; then
-                DOWNLOAD_URL="$DIRECT_URL"
-            fi
-        fi
-
-        # 如果还是获取不到版本，报错
-        if [ -z "$VERSION" ] && [[ "$DOWNLOAD_URL" == *"{version}"* ]]; then
-            zenity --error --title="$NAME" --text="无法获取版本号" --width=320
-            exit 1
-        fi
-
-        # 替换版本和架构占位符（使用 sed 因为 bash 模式替换对花括号支持不佳）
-        DOWNLOAD_URL=$(echo "$DOWNLOAD_URL" | sed "s/{version}/${VERSION}/g")
-        DOWNLOAD_URL=$(echo "$DOWNLOAD_URL" | sed "s/{arch}/${ARCH_VAR}/g")
-        DOWNLOAD_URL=$(echo "$DOWNLOAD_URL" | sed "s/{arch_suffix}/${ARCH_SUFFIX}/g")
-        if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
-            zenity --error --title="$NAME" --text="无法获取下载链接" --width=320
-            exit 1
-        fi
-        INSTALL_DIR="/opt/${APP_ID}"
-
         # ─── 特殊处理: .deb 文件直接安装 ───────────────────────────────────
-        if [[ "$DOWNLOAD_URL" == *".deb"* ]]; then
-            # .deb 由 root broker 按 manifest 自己下载并安装，launcher 不经手安装包。
+        # 按 manifest 的 download_url 判断（runtime catalog 不能改变安装包类型）。
+        if [ "$DIRECT_IS_DEB" = true ]; then
+            # .deb 由 root broker 按 catalog / manifest 自己下载并安装，launcher 不经手安装包。
             {
                 echo "10"
                 echo "# 正在下载并安装 $NAME..."
-                if ! admin deb-install "$APP_ID" >>"$LOG" 2>&1; then
+                if ! admin "$BROKER_VERB" "$APP_ID" >>"$LOG" 2>&1; then
                     echo "安装失败" >> "$LOG"
                     echo "100"; exit 1
                 fi
@@ -708,7 +764,67 @@ case "$INSTALL_METHOD" in
             exit 0
         fi
 
+        if [ -n "$CATALOG_FILE" ]; then
+            # runtime catalog 已给出版本与（sha256 已校验的）安装包，不再在线解析
+            VERSION="$CATALOG_VERSION"
+            DOWNLOAD_URL="$CATALOG_URL"
+        else
+            # ─── 获取版本号和下载链接 ─────────────────────────────────────────────
+            # 方式1: 通过 version_api (自定义 JSON API)
+            if [ -n "$VERSION_API" ]; then
+                if [[ "$VERSION_API" == file:///* ]]; then
+                    # 本地脚本：file:///path/to/script.sh
+                    SCRIPT_PATH="${VERSION_API#file://}"  # 注意：两个斜杠，不是三个
+                    VERSION=$("$SCRIPT_PATH" 2>>"$LOG" | jq -r '.version // .latest // empty' 2>>"$LOG")
+                else
+                    # HTTP API
+                    VERSION=$(curl -fsSL "$VERSION_API" 2>>"$LOG" | jq -r '.version // .latest // empty' 2>>"$LOG")
+                fi
+            fi
+
+            # 方式2: JetBrains 产品 - 使用官方 API 获取最新版本和下载链接
+            JETBRAINS_CODE=$(jq -r '.jetbrains_code // empty' "$MANIFEST" 2>/dev/null)
+            if [ -n "$JETBRAINS_CODE" ]; then
+                # JetBrains API: https://data.services.jetbrains.com/products/releases?code=XXX&latest=true&type=release
+                JB_API_RESP=$(curl -fsSL "https://data.services.jetbrains.com/products/releases?code=${JETBRAINS_CODE}&latest=true&type=release" 2>>"$LOG")
+                # 提取版本号
+                if [ -z "$VERSION" ]; then
+                    VERSION=$(echo "$JB_API_RESP" | jq -r ".[\"${JETBRAINS_CODE}\"][0].version // empty" 2>>"$LOG")
+                fi
+                # 根据架构获取正确的下载链接
+                if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+                    DIRECT_URL=$(echo "$JB_API_RESP" | jq -r ".[\"${JETBRAINS_CODE}\"][0].downloads.linuxARM64.link // empty" 2>>"$LOG")
+                else
+                    DIRECT_URL=$(echo "$JB_API_RESP" | jq -r ".[\"${JETBRAINS_CODE}\"][0].downloads.linux.link // empty" 2>>"$LOG")
+                fi
+                # 如果 API 返回了直接链接，使用它
+                echo "JetBrains latest ${JETBRAINS_CODE}: version=${VERSION}, url=${DIRECT_URL}" >> "$LOG"
+                if [ -n "$DIRECT_URL" ] && [ "$DIRECT_URL" != "null" ]; then
+                    DOWNLOAD_URL="$DIRECT_URL"
+                fi
+            fi
+
+            # 如果还是获取不到版本，报错
+            if [ -z "$VERSION" ] && [[ "$DOWNLOAD_URL" == *"{version}"* ]]; then
+                zenity --error --title="$NAME" --text="无法获取版本号" --width=320
+                exit 1
+            fi
+
+            # 替换版本和架构占位符（使用 sed 因为 bash 模式替换对花括号支持不佳）
+            DOWNLOAD_URL=$(echo "$DOWNLOAD_URL" | sed "s/{version}/${VERSION}/g")
+            DOWNLOAD_URL=$(echo "$DOWNLOAD_URL" | sed "s/{arch}/${ARCH_VAR}/g")
+            DOWNLOAD_URL=$(echo "$DOWNLOAD_URL" | sed "s/{arch_suffix}/${ARCH_SUFFIX}/g")
+            if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+                zenity --error --title="$NAME" --text="无法获取下载链接" --width=320
+                exit 1
+            fi
+        fi
+        INSTALL_DIR="/opt/${APP_ID}"
+
         {
+            # set -u：下面按分支才赋值的变量先置空，避免 AppImage / tar 目录分支在收尾时因未绑定而中断
+            ACTUAL_BIN=""
+            TMP_EXTRACT=""
             TMP_APPIMAGE="/tmp/${APP_ID}.AppImage"
             TMP_ZIP="/tmp/${APP_ID}.zip"
             rm -f "$TMP_APPIMAGE" "$TMP_ZIP" "/tmp/${APP_ID}.tar.gz"
@@ -716,16 +832,16 @@ case "$INSTALL_METHOD" in
             # 检测文件类型（AppImage、zip 或 tar.gz）
             if [[ "$DOWNLOAD_URL" == *".tar.gz"* ]] || [[ "$DOWNLOAD_URL" == *".tgz"* ]]; then
                 TMP_TAR="/tmp/${APP_ID}.tar.gz"
-                if ! download_with_progress "$DOWNLOAD_URL" "$TMP_TAR" 10 50 "正在下载 $NAME"; then
+                if ! obtain_artifact "$DOWNLOAD_URL" "$TMP_TAR" 10 50 "正在下载 $NAME"; then
                     echo "100"; exit 1
                 fi
             elif [[ "$DOWNLOAD_URL" == *".zip"* ]]; then
-                if ! download_with_progress "$DOWNLOAD_URL" "$TMP_ZIP" 10 50 "正在下载 $NAME"; then
+                if ! obtain_artifact "$DOWNLOAD_URL" "$TMP_ZIP" 10 50 "正在下载 $NAME"; then
                     echo "100"; exit 1
                 fi
             else
                 # Cursor 的 latest 实际上会重定向到具体的版本文件
-                if ! download_with_progress "$DOWNLOAD_URL" "$TMP_APPIMAGE" 10 50 "正在下载 $NAME"; then
+                if ! obtain_artifact "$DOWNLOAD_URL" "$TMP_APPIMAGE" 10 50 "正在下载 $NAME"; then
                     echo "100"; exit 1
                 fi
             fi
@@ -911,7 +1027,7 @@ case "$INSTALL_METHOD" in
             TMP_APPIMAGE="/tmp/${APP_ID}.AppImage"
             rm -f "$TMP_APPIMAGE"
 
-            if ! download_with_progress "$API_URL" "$TMP_APPIMAGE" 10 50 "正在下载 $NAME"; then
+            if ! obtain_artifact "$API_URL" "$TMP_APPIMAGE" 10 50 "正在下载 $NAME"; then
                 echo "100"; exit 1
             fi
 
@@ -989,6 +1105,7 @@ case "$INSTALL_METHOD" in
 
         PROGRESS_FILE="/tmp/${APP_ID}_progress"
         : > "$PROGRESS_FILE"
+        CUSTOM_RC_FILE="$(mktemp /tmp/webclaw-custom-rc-"${APP_ID}".XXXXXX)"
 
         {
             echo "5"
@@ -996,9 +1113,11 @@ case "$INSTALL_METHOD" in
             echo "10"
             echo "# 准备安装环境..."
 
-            # 后台运行安装包装脚本（已内置 WEBCLAW_APP_LAUNCHER=1 DISABLE_ZENITY=1）
-            # 只有 sudoers 里逐个列出的 root 所有脚本能免密执行
-            sudo -n "$INSTALL_WRAPPER" >>"$LOG" 2>&1 &
+            # 后台运行安装包装脚本（已内置 WEBCLAW_APP_LAUNCHER=1 DISABLE_ZENITY=1）。
+            # broker 高层 install/upgrade 会校验 manifest 里的 install_wrapper/install_script 是 root 所有的
+            # 固定路径再执行；upgrade 只在 manifest 声明 upgrade_by_reinstall 时才会重新执行，
+            # 否则 broker 返回 3（unsupported）。launcher 不再自己拼 sudo 命令，也不回退。
+            admin "$BROKER_VERB" "$APP_ID" >>"$LOG" 2>&1 &
             INSTALL_PID=$!
 
             # 监控进度文件并实时更新 zenity
@@ -1030,9 +1149,10 @@ case "$INSTALL_METHOD" in
 
             wait $INSTALL_PID
             INSTALL_STATUS=$?
+            echo "$INSTALL_STATUS" > "$CUSTOM_RC_FILE"
 
             if [ $INSTALL_STATUS -ne 0 ]; then
-                echo "安装脚本执行失败" >> "$LOG"
+                echo "安装脚本执行失败 (rc=$INSTALL_STATUS)" >> "$LOG"
                 echo "100"; exit 1
             fi
 
@@ -1043,6 +1163,17 @@ case "$INSTALL_METHOD" in
             --text="准备中..." \
             --percentage=0 --auto-close --no-cancel --width=420 \
             "${ICON_ARG[@]+"${ICON_ARG[@]}"}"
+        CUSTOM_RC="$(cat "$CUSTOM_RC_FILE" 2>/dev/null || echo 1)"
+        rm -f "$CUSTOM_RC_FILE"
+        if [ "$CUSTOM_RC" = 3 ]; then
+            # broker 明确 unsupported（升级未声明 upgrade_by_reinstall、架构不支持、脚本不可信等）
+            if [ "$ACTION" = "upgrade" ]; then
+                zenity --error --title="$NAME" --text="<b>$NAME</b> 暂不支持自动升级。" --width=360
+            else
+                zenity --error --title="$NAME" --text="<b>$NAME</b> 暂不支持在当前环境安装。\n详细日志:\n$LOG" --width=420
+            fi
+            exit 1
+        fi
         ;;
 
     *)

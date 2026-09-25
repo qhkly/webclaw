@@ -1,0 +1,9 @@
+{
+  "id": "ctest-noarch",
+  "name": "Catalog Test No Arch",
+  "package": "ctest-noarch",
+  "binary": "/opt/ctest-noarch/ctest-noarch",
+  "install_method": "direct_download",
+  "download_url": "https://downloads.ctest.example/ctest-noarch.tar.gz",
+  "unsupported_archs": ["amd64", "arm64"]
+}
